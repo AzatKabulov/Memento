@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Memento",
+    "slug": "memento",
+    "scheme": "memento",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.azatkabulov.memento"
+    },
+    "android": {
+      "package": "com.azatkabulov.memento",
+      "adaptiveIcon": {
+        "backgroundColor": "#212121",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-video",
+      "expo-image",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Memento to capture today's moment.",
+          "microphonePermission": "Allow Memento to record sound with today's video.",
+          "recordAudioAndroid": true,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Memento to add a moment from your photo library.",
+          "cameraPermission": "Allow Memento to capture today's moment.",
+          "microphonePermission": "Allow Memento to record sound with today's video."
+        }
+      ]
+    ]
+  }
+}

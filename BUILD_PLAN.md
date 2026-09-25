@@ -1,6 +1,8 @@
 # Memento — Volume 1 build plan
 
-Status: Phase 1 product specification complete; later build phases remain planned. No application code has been created. The Phase 1 behavior brief is PHASE_1_SPEC.md.
+Status: Phase 1 product specification complete. Phase 2 design and Phase 3 Expo prototype are in progress. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
+
+The current implementation and unverified native work are recorded in [Phase 2–3 progress](PHASE_2_3_PROGRESS.md).
 
 Prepared: 26 September 2026. Platform and store requirements must be checked again before implementation and submission.
 
