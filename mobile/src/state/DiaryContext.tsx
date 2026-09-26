@@ -29,6 +29,7 @@ type DiaryState = {
   ready: boolean;
   storageError: string | null;
   retryLoad: () => void;
+  refresh: () => Promise<void>;
   enter: () => void;
   moments: Record<string, Moment>;
   save: (moment: Moment) => Promise<void>;
@@ -126,6 +127,21 @@ export function DiaryProvider({ children }: { children: React.ReactNode }) {
       retryLoad: () => {
         setStorageFailure(null);
         setLoadAttempt((current) => current + 1);
+      },
+      refresh: async () => {
+        if (!auth.configured || !auth.ownerId) return;
+        const ownerId = auth.ownerId;
+        const latest = await listSavedMoments(ownerId);
+        setSaved((current) =>
+          current?.ownerId === ownerId
+            ? {
+                ownerId,
+                moments: Object.fromEntries(
+                  latest.map((moment) => [moment.date, moment]),
+                ),
+              }
+            : current,
+        );
       },
       enter: () => setPreviewEntered(true),
       moments,

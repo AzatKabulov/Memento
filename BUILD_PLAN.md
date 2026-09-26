@@ -1,6 +1,6 @@
 # Memento — Volume 1 build plan
 
-Status: Phase 1 product specification complete. Phase 2 design and Phase 3 native validation remain in progress. Phase 4 account and offline-storage work has begun. Phase 5 capture and editor work has begun; see PHASE_5_PROGRESS.md. Phase 6 calendar and viewer work is implemented in the prototype, with native validation pending; see PHASE_6_PROGRESS.md. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
+Status: Phase 1 product specification complete. Phase 2 design and Phase 3 native validation remain in progress. Phase 4 account and offline-storage work has begun. Phase 5 capture and editor work has begun; see PHASE_5_PROGRESS.md. Phase 6 calendar and viewer work is implemented in the prototype, with native validation pending; see PHASE_6_PROGRESS.md. Phase 7 private backup work is underway; see PHASE_7_PROGRESS.md. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
 
 The current implementation and unverified native work are recorded in [Phase 2–3 progress](PHASE_2_3_PROGRESS.md).
 

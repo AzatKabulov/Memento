@@ -16,7 +16,6 @@ const futureAreas = [
   ["Reminders", "A gentle invitation to remember today"],
   ["Appearance", "Light and dark diary themes"],
   ["Video previews", "Quiet playback in the calendar"],
-  ["Backup & restore", "A private copy of your memories"],
   ["Export diary", "Take your memories with you"],
   ["Account", "Google/Apple sign-in and account deletion"],
 ];
@@ -37,8 +36,8 @@ export default function Settings() {
         <Text style={styles.eyebrow}>YOUR SPACE</Text>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.description}>
-          The diary stays yours. These controls will arrive as the private
-          storage and account features are built.
+          The diary stays yours. Choose how your memories are kept and how
+          Memento feels each day.
         </Text>
         <View style={styles.list}>
           {futureAreas.map(([name, description]) => (
@@ -51,6 +50,19 @@ export default function Settings() {
             </View>
           ))}
         </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => router.push("/backup")}
+          style={styles.backupLink}
+        >
+          <View>
+            <Text style={styles.itemTitle}>Backup & restore</Text>
+            <Text style={styles.itemText}>
+              Your private cloud copy and sync status
+            </Text>
+          </View>
+          <Text style={styles.backupArrow}>›</Text>
+        </TouchableOpacity>
         {auth.configured && auth.ownerId && (
           <TouchableOpacity
             accessibilityRole="button"
@@ -66,6 +78,12 @@ export default function Settings() {
           >
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
+        )}
+        {auth.configured && auth.ownerId && (
+          <Text style={styles.signOutNote}>
+            Signing out keeps this account’s local diary on this phone. Another
+            account cannot open it.
+          </Text>
         )}
         <Text style={styles.version}>
           Memento prototype · Volume 1 in progress
@@ -136,4 +154,22 @@ const styles = StyleSheet.create({
     marginTop: 26,
   },
   signOutText: { color: colors.ink, fontWeight: "700" },
+  backupLink: {
+    marginTop: 14,
+    minHeight: 74,
+    paddingHorizontal: 17,
+    borderRadius: 24,
+    backgroundColor: colors.card,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  backupArrow: { color: colors.ink, fontSize: 28 },
+  signOutNote: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: "center",
+    marginTop: 10,
+  },
 });

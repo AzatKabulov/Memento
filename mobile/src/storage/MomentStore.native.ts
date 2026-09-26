@@ -16,15 +16,16 @@ type EntryRow = {
   frame_y: "top" | "center" | "bottom";
 };
 
-const database = SQLite.openDatabaseAsync("memento.db").then(async (db) => {
-  const version = await db.getFirstAsync<{ user_version: number }>(
-    "PRAGMA user_version",
-  );
-  if ((version?.user_version ?? 0) > 2)
-    throw new Error("This diary needs a newer Memento version.");
-  await db.execAsync("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-  if ((version?.user_version ?? 0) < 1)
-    await db.execAsync(`
+export const database = SQLite.openDatabaseAsync("memento.db").then(
+  async (db) => {
+    const version = await db.getFirstAsync<{ user_version: number }>(
+      "PRAGMA user_version",
+    );
+    if ((version?.user_version ?? 0) > 3)
+      throw new Error("This diary needs a newer Memento version.");
+    await db.execAsync("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+    if ((version?.user_version ?? 0) < 1)
+      await db.execAsync(`
     BEGIN IMMEDIATE;
     CREATE TABLE IF NOT EXISTS media (
       id TEXT PRIMARY KEY,
@@ -71,14 +72,35 @@ const database = SQLite.openDatabaseAsync("memento.db").then(async (db) => {
     PRAGMA user_version = 1;
     COMMIT;
   `);
-  if ((version?.user_version ?? 0) < 2)
-    await db.execAsync(
-      "BEGIN IMMEDIATE; ALTER TABLE entries ADD COLUMN frame_y TEXT NOT NULL DEFAULT 'center' CHECK(frame_y IN ('top', 'center', 'bottom')); PRAGMA user_version = 2; COMMIT;",
-    );
-  return db;
-});
+    if ((version?.user_version ?? 0) < 2)
+      await db.execAsync(
+        "BEGIN IMMEDIATE; ALTER TABLE entries ADD COLUMN frame_y TEXT NOT NULL DEFAULT 'center' CHECK(frame_y IN ('top', 'center', 'bottom')); PRAGMA user_version = 2; COMMIT;",
+      );
+    if ((version?.user_version ?? 0) < 3)
+      await db.execAsync(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE entries ADD COLUMN cloud_revision INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE pending_operations ADD COLUMN media_path TEXT;
+      ALTER TABLE pending_operations ADD COLUMN upload_url TEXT;
+      ALTER TABLE pending_operations ADD COLUMN retry_at TEXT;
+      ALTER TABLE pending_operations ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE pending_operations ADD COLUMN last_error TEXT;
+      CREATE TABLE sync_conflicts (
+        owner_id TEXT NOT NULL,
+        diary_date TEXT NOT NULL,
+        remote_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(owner_id, diary_date)
+      );
+      CREATE INDEX pending_by_owner_retry ON pending_operations(owner_id, retry_at, created_at);
+      PRAGMA user_version = 3;
+      COMMIT;
+    `);
+    return db;
+  },
+);
 
-function ownerDirectory(ownerId: string) {
+export function ownerDirectory(ownerId: string) {
   if (!/^[a-zA-Z0-9-]{1,64}$/.test(ownerId))
     throw new Error("Invalid diary owner");
   const directory = new Directory(Paths.document, "memento", ownerId);
@@ -86,14 +108,14 @@ function ownerDirectory(ownerId: string) {
   return directory;
 }
 
-function mediaUri(ownerId: string, path: string) {
+export function mediaUri(ownerId: string, path: string) {
   // An absolute path is accepted for early development records; new records use filenames.
   return path.startsWith("file://")
     ? path
     : new File(ownerDirectory(ownerId), path).uri;
 }
 
-function fileExtension(uri: string, kind: Moment["kind"]) {
+export function fileExtension(uri: string, kind: Moment["kind"]) {
   const extension = uri
     .split(/[?#]/)[0]
     .match(/\.(jpe?g|png|heic|heif|webp|avif|gif|mp4|mov|m4v)$/i)?.[1];
@@ -208,7 +230,8 @@ export async function saveMomentLocally(
       }>(
         `SELECT e.id, e.media_id, e.source, m.path FROM entries e
          JOIN media m ON m.id = e.media_id
-         WHERE e.owner_id = ? AND e.diary_date = ? AND e.deleted_at IS NULL`,
+         WHERE e.owner_id = ? AND e.diary_date = ?
+         ORDER BY (e.deleted_at IS NULL) DESC, e.updated_at DESC LIMIT 1`,
         ownerId,
         moment.date,
       );
@@ -231,7 +254,7 @@ export async function saveMomentLocally(
       const entryId = existing?.id ?? randomUUID();
       if (existing) {
         await tx.runAsync(
-          `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, updated_at = ?, revision = revision + 1
+          `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, updated_at = ?, deleted_at = NULL, revision = revision + 1
            WHERE id = ? AND owner_id = ?`,
           moment.caption,
           mediaId,
@@ -264,6 +287,11 @@ export async function saveMomentLocally(
           now,
         );
       }
+      await tx.runAsync(
+        "DELETE FROM pending_operations WHERE owner_id = ? AND entry_id = ?",
+        ownerId,
+        entryId,
+      );
       await tx.runAsync(
         `INSERT INTO pending_operations (id, owner_id, entry_id, action, created_at)
          VALUES (?, ?, ?, 'upsert', ?)`,
@@ -309,6 +337,11 @@ export async function deleteMomentLocally(ownerId: string, date: string) {
       now,
       existing.id,
       ownerId,
+    );
+    await tx.runAsync(
+      "DELETE FROM pending_operations WHERE owner_id = ? AND entry_id = ?",
+      ownerId,
+      existing.id,
     );
     await tx.runAsync(
       `INSERT INTO pending_operations (id, owner_id, entry_id, action, created_at)
