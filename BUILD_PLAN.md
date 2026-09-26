@@ -1,6 +1,6 @@
 # Memento — Volume 1 build plan
 
-Status: Phase 1 product specification complete. Phase 2 design and Phase 3 Expo prototype are in progress. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
+Status: Phase 1 product specification complete. Phase 2 design and Phase 3 native validation remain in progress. Phase 4 account and offline-storage work has begun. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
 
 The current implementation and unverified native work are recorded in [Phase 2–3 progress](PHASE_2_3_PROGRESS.md).
 
@@ -14,7 +14,7 @@ Volume 1 includes the entire personal experience: photos, videos, circular prese
 
 Volume 2 holds social calendars, public/private profiles, access requests, friends, and per-date audiences. Monthly collages, annual recap videos, and anniversary memories remain later additions.
 
-The repository currently contains no application. This plan starts with product rules and finishes with release and maintenance. Public app-store publication is a later release step; drafting this plan does not authorize account purchases or publication.
+The repository contains an Expo prototype. This plan starts with product rules and finishes with release and maintenance. Public app-store publication is a later release step; drafting this plan does not authorize account purchases or publication.
 
 ## 2. Working decisions
 
@@ -362,4 +362,4 @@ Estimate ongoing media cost from measured average saved photo/video size × entr
 - [ ] Production builds, store requirements, and operating recovery procedures are ready.
 - [ ] Social features remain a separately planned Volume 2, with existing entries private.
 
-Immediate next step after reviewing this plan: settle Phase 1's small set of open decisions and produce the core screen flow and visual prototype in Phase 2.
+Current next step: complete Phase 4 account configuration and device verification while continuing the native proof still open from Phase 3.

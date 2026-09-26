@@ -13,7 +13,9 @@ npm ci
 npm start
 ```
 
-Open it in Expo Go or a development build on a supported phone, or run `npm run web` for layout review. The prototype uses sample memories. Photos or videos added during a session are kept only in memory; they disappear when the app restarts. Account sign-in, durable storage, private backup, and export are later implementation phases.
+Open it in Expo Go or a development build on a supported phone, or run `npm run web` for layout review. Without account configuration, this is a sample-memory preview and new moments disappear when the app restarts. Phase 4 adds native email accounts and account-scoped local storage; [Phase 4 progress](PHASE_4_PROGRESS.md) records what still needs backend and device verification. Cloud backup and export are later phases.
+
+To connect a Supabase project, copy `mobile/.env.example` to `mobile/.env` and set its project URL and publishable key. Never put a service-role key in the app. Configure email confirmation and allow the `memento://auth/callback` and `memento://auth/reset` redirect URLs in Supabase. Google and Apple providers still need credentials and native testing.
 
 ```sh
 npm run typecheck

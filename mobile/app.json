@@ -42,7 +42,9 @@
           "cameraPermission": "Allow Memento to capture today's moment.",
           "microphonePermission": "Allow Memento to record sound with today's video."
         }
-      ]
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
     ]
   }
 }

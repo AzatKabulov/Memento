@@ -1,14 +1,23 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors, type } from "../lib/theme";
 import { useDiary } from "../state/DiaryContext";
+import { useAuth } from "../auth/AuthContext";
 
 export default function Welcome() {
   const { enter } = useDiary();
+  const auth = useAuth();
+  useEffect(() => {
+    if (auth.configured && auth.ownerId) router.replace("/");
+  }, [auth.configured, auth.ownerId]);
   const start = () => {
+    if (auth.configured) {
+      router.push("/auth");
+      return;
+    }
     enter();
     router.replace("/");
   };
@@ -41,12 +50,13 @@ export default function Welcome() {
           onPress={start}
         >
           <Text style={[styles.primaryText, { color: colors.buttonInk }]}>
-            Open diary prototype
+            {auth.configured ? "Sign in to Memento" : "Open diary prototype"}
           </Text>
         </TouchableOpacity>
         <Text style={styles.noteBottom}>
-          Account sign-in is a Volume 1 feature coming in Phase 4. This preview
-          uses sample memories and does not save after restart.
+          {auth.configured
+            ? "Your diary is private to your account and saved on this phone. Cloud backup is coming later."
+            : "Account sign-in needs a Supabase project. This preview uses sample memories and does not save after restart."}
         </Text>
       </View>
     </SafeAreaView>

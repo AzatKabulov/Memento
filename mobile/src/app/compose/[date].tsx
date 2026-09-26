@@ -15,22 +15,26 @@ import { diaryDate, momentLabel } from "../../lib/dates";
 import { pickMedia, showPickMediaError } from "../../lib/pickMedia";
 import { colors, type } from "../../lib/theme";
 import { useDiary, type Moment } from "../../state/DiaryContext";
+import { useAuth } from "../../auth/AuthContext";
 
 export default function Compose() {
   const params = useLocalSearchParams<{
     date: string;
     uri?: string;
     kind?: "photo" | "video";
+    source?: "camera" | "library";
   }>();
   const date = params.date;
   const today = diaryDate(new Date());
   const { moments, save } = useDiary();
+  const auth = useAuth();
   const existing = moments[date];
   const [draft, setDraft] = useState<Moment | null>(() =>
     params.uri
       ? {
           date,
           kind: params.kind === "video" ? "video" : "photo",
+          source: params.source === "camera" ? "camera" : "library",
           uri: params.uri,
           caption: existing?.caption ?? "",
         }
@@ -53,6 +57,7 @@ export default function Compose() {
       setDraft({
         date,
         kind: asset.kind,
+        source: "library",
         uri: asset.uri,
         caption,
         duration: asset.duration,
@@ -62,11 +67,20 @@ export default function Compose() {
     }
   }
 
-  function finish() {
+  async function finish() {
     if (!draft || saving) return;
     setSaving(true);
-    save({ ...draft, date, caption: caption.trim() });
-    router.replace({ pathname: "/moment/[date]", params: { date } });
+    try {
+      await save({ ...draft, date, caption: caption.trim() });
+      router.replace({ pathname: "/moment/[date]", params: { date } });
+    } catch (error) {
+      Alert.alert(
+        "Could not save this moment",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   function leave() {
@@ -159,8 +173,9 @@ export default function Compose() {
         />
         <Text style={styles.counter}>{caption.length}/500</Text>
         <Text style={styles.prototype}>
-          Prototype preview: moments stay in memory while the app is open.
-          Private storage and backup are built in later phases.
+          {auth.configured
+            ? "Saved on this phone. Private cloud backup is coming later."
+            : "Prototype preview: moments stay in memory while the app is open. Private storage and backup are built in later phases."}
         </Text>
       </ScrollView>
       <View style={styles.footer}>

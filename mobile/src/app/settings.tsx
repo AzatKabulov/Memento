@@ -2,6 +2,7 @@ import React from "react";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { colors, type } from "../lib/theme";
+import { useAuth } from "../auth/AuthContext";
 
 const futureAreas = [
   ["Reminders", "A gentle invitation to remember today"],
@@ -16,10 +18,11 @@ const futureAreas = [
   ["Video previews", "Quiet playback in the calendar"],
   ["Backup & restore", "A private copy of your memories"],
   ["Export diary", "Take your memories with you"],
-  ["Account", "Sign-in, recovery and deletion"],
+  ["Account", "Google/Apple sign-in and account deletion"],
 ];
 
 export default function Settings() {
+  const auth = useAuth();
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
@@ -48,6 +51,22 @@ export default function Settings() {
             </View>
           ))}
         </View>
+        {auth.configured && auth.ownerId && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.signOut}
+            onPress={async () => {
+              try {
+                await auth.signOut();
+                router.replace("/welcome");
+              } catch {
+                Alert.alert("Could not sign out", "Please try again.");
+              }
+            }}
+          >
+            <Text style={styles.signOutText}>Sign out</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.version}>
           Memento prototype · Volume 1 in progress
         </Text>
@@ -108,4 +127,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 28,
   },
+  signOut: {
+    minHeight: 50,
+    borderRadius: 25,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 26,
+  },
+  signOutText: { color: colors.ink, fontWeight: "700" },
 });

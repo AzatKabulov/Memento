@@ -55,9 +55,13 @@ export default function MomentScreen() {
         {
           text: "Remove",
           style: "destructive",
-          onPress: () => {
-            remove(date);
-            router.replace("/");
+          onPress: async () => {
+            try {
+              await remove(date);
+              router.replace("/");
+            } catch {
+              Alert.alert("Could not remove this moment", "Please try again.");
+            }
           },
         },
       ],

@@ -27,7 +27,7 @@ export default function CameraScreen() {
       if (media)
         router.replace({
           pathname: "/compose/[date]",
-          params: { date, uri: media.uri, kind: media.kind },
+          params: { date, uri: media.uri, kind: media.kind, source: "library" },
         });
     } catch (error) {
       showPickMediaError(error);
@@ -88,7 +88,7 @@ export default function CameraScreen() {
         if (result?.uri)
           router.replace({
             pathname: "/compose/[date]",
-            params: { date, uri: result.uri, kind: "video" },
+            params: { date, uri: result.uri, kind: "video", source: "camera" },
           });
       } catch {
         Alert.alert(
@@ -106,7 +106,7 @@ export default function CameraScreen() {
         if (result?.uri)
           router.replace({
             pathname: "/compose/[date]",
-            params: { date, uri: result.uri, kind: "photo" },
+            params: { date, uri: result.uri, kind: "photo", source: "camera" },
           });
       } catch {
         Alert.alert(

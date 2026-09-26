@@ -29,7 +29,7 @@ import { useDiary, type Moment } from "../state/DiaryContext";
 const weekdays = ["M", "T", "W", "T", "F", "S", "S"];
 
 export default function CalendarScreen() {
-  const { entered, moments } = useDiary();
+  const { entered, ready, storageError, retryLoad, moments } = useDiary();
   const today = diaryDate(new Date());
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -58,6 +58,23 @@ export default function CalendarScreen() {
   );
 
   if (!entered) return <Redirect href="/welcome" />;
+  if (!ready)
+    return (
+      <SafeAreaView style={styles.page}>
+        <Text style={styles.loading}>
+          {storageError || "Opening your diary…"}
+        </Text>
+        {!!storageError && (
+          <TouchableOpacity
+            style={styles.retry}
+            onPress={retryLoad}
+            accessibilityRole="button"
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </TouchableOpacity>
+        )}
+      </SafeAreaView>
+    );
 
   const changeMonth = (step: number) =>
     setVisibleMonth(new Date(year, month + step, 1));
@@ -76,7 +93,12 @@ export default function CalendarScreen() {
         if (media)
           router.push({
             pathname: "/compose/[date]",
-            params: { date, uri: media.uri, kind: media.kind },
+            params: {
+              date,
+              uri: media.uri,
+              kind: media.kind,
+              source: "library",
+            },
           });
       } catch (error) {
         showPickMediaError(error);
@@ -381,6 +403,17 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     alignSelf: "center",
   },
+  loading: { color: colors.ink, textAlign: "center", marginTop: 80 },
+  retry: {
+    alignSelf: "center",
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    marginTop: 15,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+  },
+  retryText: { color: colors.ink, fontWeight: "700" },
   scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110 },
   topline: {
     flexDirection: "row",
