@@ -1,10 +1,18 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Image } from "expo-image";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { BlurTargetView, BlurView } from "expo-blur";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Modal,
+  AccessibilityInfo,
+  AppState,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../components/MomentMedia";
+import { VideoPoster } from "../components/VideoPoster";
 import {
   calendarCells,
   dateFromDiary,
@@ -36,18 +45,63 @@ export default function CalendarScreen() {
   );
   const [preview, setPreview] = useState<Moment | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(() =>
+    new Date().getFullYear(),
+  );
   const [screenFocused, setScreenFocused] = useState(true);
+  const [appActive, setAppActive] = useState(
+    AppState.currentState === "active",
+  );
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [scrolling, setScrolling] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const [scrollHeight, setScrollHeight] = useState(0);
+  const [gridY, setGridY] = useState(0);
+  const scrollIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTargetRef = useRef<View | null>(null);
   const { width } = useWindowDimensions();
-  const viewportWidth = Math.min(width - (Platform.OS === "web" ? 16 : 0), 480);
-  const tile = Math.floor((viewportWidth - 4 - 6 * 5) / 7);
+  const viewportWidth = Math.min(width, 480) - (Platform.OS === "web" ? 16 : 0);
+  const tile = Math.floor((viewportWidth - 24 - 6 * 5) / 7);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
   const cells = calendarCells(year, month);
   const filled = cells.filter((date) => date && moments[date]).length;
+  const visibleRows = new Set(
+    cells
+      .map((_, index) => Math.floor(index / 7))
+      .filter((row) => {
+        if (!scrollHeight) return true;
+        const top = gridY + row * (tile + 5);
+        return (
+          top + tile >= scrollY - tile && top <= scrollY + scrollHeight + tile
+        );
+      }),
+  );
   const previewVideos = cells
-    .filter((date) => date && moments[date]?.kind === "video")
+    .map((date, index) => ({ date, row: Math.floor(index / 7) }))
+    .filter(({ date, row }) => {
+      return !!date && moments[date]?.kind === "video" && visibleRows.has(row);
+    })
+    .map(({ date }) => date)
     .slice(0, 2);
+  const canPreview =
+    screenFocused &&
+    appActive &&
+    !reduceMotion &&
+    !scrolling &&
+    !yearOpen &&
+    !preview;
+  const yearSummaries = useMemo(() => {
+    const result = new Map<string, { count: number; cover?: Moment }>();
+    for (const moment of Object.values(moments)) {
+      const key = moment.date.slice(0, 7);
+      const value = result.get(key) ?? { count: 0 };
+      value.count += 1;
+      if (!value.cover || moment.date > value.cover.date) value.cover = moment;
+      result.set(key, value);
+    }
+    return result;
+  }, [moments]);
   const held = useRef(false);
 
   useFocusEffect(
@@ -56,6 +110,25 @@ export default function CalendarScreen() {
       return () => setScreenFocused(false);
     }, []),
   );
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotion(enabled);
+    });
+    const motion = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduceMotion,
+    );
+    const app = AppState.addEventListener("change", (state) =>
+      setAppActive(state === "active"),
+    );
+    return () => {
+      mounted = false;
+      motion.remove();
+      app.remove();
+      if (scrollIdle.current) clearTimeout(scrollIdle.current);
+    };
+  }, []);
 
   if (!entered) return <Redirect href="/welcome" />;
   if (!ready)
@@ -78,6 +151,10 @@ export default function CalendarScreen() {
 
   const changeMonth = (step: number) =>
     setVisibleMonth(new Date(year, month + step, 1));
+  const resumeAfterScroll = () => {
+    if (scrollIdle.current) clearTimeout(scrollIdle.current);
+    scrollIdle.current = setTimeout(() => setScrolling(false), 250);
+  };
   const openDate = async (date: string) => {
     if (held.current) {
       held.current = false;
@@ -110,7 +187,16 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={styles.page}>
       <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          onLayout={(event) => setScrollHeight(event.nativeEvent.layout.height)}
+          onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={32}
+          onScrollBeginDrag={() => setScrolling(true)}
+          onScrollEndDrag={resumeAfterScroll}
+          onMomentumScrollBegin={() => setScrolling(true)}
+          onMomentumScrollEnd={resumeAfterScroll}
+        >
           <View style={styles.topline}>
             <View style={{ width: 44 }} />
             <Text style={styles.brand}>Memento</Text>
@@ -130,7 +216,10 @@ export default function CalendarScreen() {
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Choose year"
-                onPress={() => setYearOpen(true)}
+                onPress={() => {
+                  setSelectedYear(year);
+                  setYearOpen(true);
+                }}
                 style={{ minHeight: 48, justifyContent: "center" }}
               >
                 <Text
@@ -171,13 +260,22 @@ export default function CalendarScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel="Next month"
+              disabled={
+                year === new Date().getFullYear() &&
+                month === new Date().getMonth()
+              }
               onPress={() => changeMonth(1)}
-              style={styles.arrow}
+              style={[
+                styles.arrow,
+                year === new Date().getFullYear() &&
+                  month === new Date().getMonth() &&
+                  styles.arrowDisabled,
+              ]}
             >
               <Text style={styles.arrowText}>›</Text>
             </TouchableOpacity>
           </View>
-          <View style={[styles.weekRow, { marginHorizontal: -18 }]}>
+          <View style={styles.weekRow}>
             {weekdays.map((day, index) => (
               <Text key={index} style={[styles.weekLabel, { width: tile }]}>
                 {day}
@@ -185,10 +283,10 @@ export default function CalendarScreen() {
             ))}
           </View>
           <View
+            onLayout={(event) => setGridY(event.nativeEvent.layout.y)}
             style={[
               styles.grid,
               {
-                marginHorizontal: -18,
                 columnGap: 5,
                 justifyContent: "flex-start",
               },
@@ -202,20 +300,24 @@ export default function CalendarScreen() {
                   moment={moments[date]}
                   today={today}
                   size={tile}
-                  playVideo={
-                    screenFocused && !preview && previewVideos.includes(date)
-                  }
+                  visible={visibleRows.has(Math.floor(index / 7))}
+                  playVideo={canPreview && previewVideos.includes(date)}
                   onOpen={() => openDate(date)}
                   onHold={() => {
                     held.current = true;
                     if (moments[date]) setPreview(moments[date]);
                   }}
-                  onRelease={() => setPreview(null)}
+                  onRelease={() => {
+                    setPreview(null);
+                    setTimeout(() => {
+                      held.current = false;
+                    }, 0);
+                  }}
                 />
               ) : (
                 <View
                   key={`empty-${index}`}
-                  style={{ width: tile, height: tile + 15 }}
+                  style={{ width: tile, height: tile + 5 }}
                 />
               ),
             )}
@@ -287,42 +389,114 @@ export default function CalendarScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setYearOpen(false)}
       >
-        <SafeAreaView style={styles.yearPage}>
-          <View style={styles.yearHeader}>
-            <Text style={styles.yearTitle}>Find a month</Text>
-            <TouchableOpacity onPress={() => setYearOpen(false)}>
-              <Text style={styles.close}>Done</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView>
-            {Array.from(
-              { length: 12 },
-              (_, i) => new Date().getFullYear() - i,
-            ).map((itemYear) => (
-              <View key={itemYear}>
-                <Text style={styles.yearLabel}>{itemYear}</Text>
-                <View style={styles.yearGrid}>
-                  {Array.from({ length: 12 }, (_, itemMonth) => (
+        <View style={styles.yearBackdrop}>
+          <SafeAreaView style={styles.yearPage}>
+            <View style={styles.yearHeader}>
+              <View>
+                <Text style={styles.yearTitle}>Find a month</Text>
+                <Text style={styles.yearSubtitle}>
+                  Your moments, one month at a time.
+                </Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => setYearOpen(false)}
+                style={styles.yearDone}
+              >
+                <Text style={styles.close}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.yearSelector}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Previous year"
+                disabled={selectedYear <= 1900}
+                onPress={() => setSelectedYear((value) => value - 1)}
+                style={styles.yearStep}
+              >
+                <Text style={styles.yearStepText}>‹</Text>
+              </TouchableOpacity>
+              <Text style={styles.yearNumber}>{selectedYear}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Next year"
+                disabled={selectedYear >= new Date().getFullYear()}
+                onPress={() => setSelectedYear((value) => value + 1)}
+                style={styles.yearStep}
+              >
+                <Text
+                  style={[
+                    styles.yearStepText,
+                    selectedYear >= new Date().getFullYear() &&
+                      styles.disabledText,
+                  ]}
+                >
+                  ›
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.yearScroll}>
+              <View style={styles.yearGrid}>
+                {Array.from({ length: 12 }, (_, itemMonth) => {
+                  const key = `${selectedYear}-${String(itemMonth + 1).padStart(2, "0")}`;
+                  const summary = yearSummaries.get(key);
+                  const future =
+                    selectedYear === new Date().getFullYear() &&
+                    itemMonth > new Date().getMonth();
+                  return (
                     <TouchableOpacity
-                      key={itemMonth}
-                      style={styles.yearMonth}
+                      key={key}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${monthLabel(selectedYear, itemMonth)}, ${summary?.count ?? 0} moments`}
+                      disabled={future}
+                      style={[
+                        styles.yearMonth,
+                        future && styles.yearMonthFuture,
+                      ]}
                       onPress={() => {
-                        setVisibleMonth(new Date(itemYear, itemMonth, 1));
+                        setVisibleMonth(new Date(selectedYear, itemMonth, 1));
                         setYearOpen(false);
                       }}
                     >
-                      <Text style={styles.yearMonthText}>
-                        {new Intl.DateTimeFormat("en", {
-                          month: "short",
-                        }).format(new Date(itemYear, itemMonth, 1))}
-                      </Text>
+                      {summary?.cover?.kind === "photo" && (
+                        <Image
+                          source={
+                            summary.cover.sample ?? { uri: summary.cover.uri }
+                          }
+                          contentFit="cover"
+                          contentPosition={summary.cover.frame ?? "center"}
+                          style={StyleSheet.absoluteFill}
+                        />
+                      )}
+                      {summary?.cover?.kind === "video" && (
+                        <View style={styles.yearVideoOnly}>
+                          <VideoPoster
+                            uri={summary.cover.uri}
+                            size={160}
+                            visible={yearOpen}
+                          />
+                        </View>
+                      )}
+                      <View style={styles.yearMonthLabel}>
+                        <Text style={styles.yearMonthText}>
+                          {new Intl.DateTimeFormat("en", {
+                            month: "short",
+                          }).format(new Date(selectedYear, itemMonth, 1))}
+                        </Text>
+                        {!!summary?.count && (
+                          <Text style={styles.yearMonthCount}>
+                            {summary.count}{" "}
+                            {summary.count === 1 ? "moment" : "moments"}
+                          </Text>
+                        )}
+                      </View>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  );
+                })}
               </View>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -333,6 +507,7 @@ function DateTile({
   moment,
   today,
   size,
+  visible,
   playVideo,
   onOpen,
   onHold,
@@ -342,6 +517,7 @@ function DateTile({
   moment?: Moment;
   today: string;
   size: number;
+  visible: boolean;
   playVideo: boolean;
   onOpen: () => void;
   onHold: () => void;
@@ -376,13 +552,15 @@ function DateTile({
                 contentPosition={moment.frame ?? "center"}
                 style={StyleSheet.absoluteFill}
               />
-            ) : (
+            ) : playVideo ? (
               <MomentMedia
                 moment={moment}
                 size={size}
                 focused={false}
-                playing={playVideo}
+                playing
               />
+            ) : (
+              <VideoPoster uri={moment.uri} size={size} visible={visible} />
             )}
             <Text style={styles.tileNumberFilled}>{day}</Text>
             {moment.kind === "video" && <Text style={styles.videoDot}>●</Text>}
@@ -416,7 +594,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   retryText: { color: colors.ink, fontWeight: "700" },
-  scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110 },
+  scroll: { paddingHorizontal: 12, paddingTop: 20, paddingBottom: 110 },
   topline: {
     flexDirection: "row",
     alignItems: "center",
@@ -490,6 +668,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   arrowText: { color: colors.ink, fontSize: 29, lineHeight: 30, marginTop: -4 },
+  arrowDisabled: { opacity: 0.35 },
+  disabledText: { opacity: 0.35 },
   monthNote: { color: colors.muted, fontSize: 12 },
   weekRow: {
     flexDirection: "row",
@@ -608,29 +788,79 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   previewHint: { marginTop: 14, fontSize: 11, color: colors.olive },
-  yearPage: { flex: 1, backgroundColor: colors.paper, padding: 24 },
+  yearBackdrop: { flex: 1, backgroundColor: colors.paper },
+  yearPage: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    backgroundColor: colors.paper,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+  },
   yearHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  yearTitle: { fontFamily: type.display, fontSize: 28, color: colors.ink },
+  yearSubtitle: { color: colors.muted, fontSize: 12, marginTop: 5 },
+  yearDone: {
+    minWidth: 54,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  close: { color: colors.plum, fontSize: 15, fontWeight: "700" },
+  yearSelector: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 22,
   },
-  yearTitle: { fontFamily: type.display, fontSize: 28, color: colors.ink },
-  close: { color: colors.plum, fontSize: 15, fontWeight: "700" },
-  yearLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  yearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  yearMonth: {
-    width: "22%",
+  yearStep: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.card,
-    paddingVertical: 13,
-    borderRadius: 20,
     alignItems: "center",
+    justifyContent: "center",
   },
-  yearMonthText: { color: colors.ink, fontSize: 13 },
+  yearStepText: { color: colors.ink, fontSize: 28, lineHeight: 32 },
+  yearNumber: { color: colors.ink, fontFamily: type.display, fontSize: 30 },
+  yearScroll: { paddingBottom: 28 },
+  yearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  yearMonth: {
+    width: "48%",
+    minHeight: 122,
+    backgroundColor: colors.card,
+    borderRadius: 23,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  yearMonthFuture: { opacity: 0.35 },
+  yearVideoOnly: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "#48413D",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  yearMonthLabel: {
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    minHeight: 46,
+    backgroundColor: "rgba(20,18,17,0.72)",
+  },
+  yearMonthText: { color: colors.ink, fontFamily: type.display, fontSize: 17 },
+  yearMonthCount: {
+    color: colors.ink,
+    fontSize: 10,
+    opacity: 0.8,
+    marginTop: 2,
+  },
 });

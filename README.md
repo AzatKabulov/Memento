@@ -2,7 +2,7 @@
 
 Memento is a private visual diary for iPhone and Android. Keep one photo or short video for each date and browse the days as a personal calendar. Volume 1 is personal only; sharing belongs to a later release.
 
-The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction](DESIGN.md) records the matte calendar design, and the [build plan](BUILD_PLAN.md) tracks the full release path. [Phase 2–3 progress](PHASE_2_3_PROGRESS.md) distinguishes the working prototype from features still to build.
+The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction](DESIGN.md) records the matte calendar design, and the [build plan](BUILD_PLAN.md) tracks the full release path. [Phase 2–3 progress](PHASE_2_3_PROGRESS.md) distinguishes the working prototype from features still to build. [Phase 6 progress](PHASE_6_PROGRESS.md) covers calendar browsing and the memory viewer.
 
 ## Run the prototype
 

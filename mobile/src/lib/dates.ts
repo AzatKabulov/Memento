@@ -35,10 +35,12 @@ export function momentLabel(value: string): string {
 export function calendarCells(year: number, month: number): (string | null)[] {
   const count = new Date(year, month + 1, 0).getDate();
   const start = (new Date(year, month, 1).getDay() + 6) % 7;
+  const trailing = (7 - ((start + count) % 7)) % 7;
   return [
     ...Array(start).fill(null),
     ...Array.from({ length: count }, (_, index) =>
       diaryDate(new Date(year, month, index + 1)),
     ),
+    ...Array(trailing).fill(null),
   ];
 }

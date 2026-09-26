@@ -1,8 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Alert,
+  AccessibilityInfo,
+  AppState,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,13 +20,27 @@ import { useDiary } from "../../state/DiaryContext";
 
 export default function MomentScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
+  return <MomentView key={date} date={date} />;
+}
+
+function MomentView({ date }: { date: string }) {
   const { moments, remove } = useDiary();
   const [screenFocused, setScreenFocused] = useState(true);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const [appActive, setAppActive] = useState(
+    AppState.currentState === "active",
+  );
+  const touchStart = useRef<number | null>(null);
   const moment = moments[date];
   const { width } = useWindowDimensions();
   const mediaSize = Math.min(width - 52, 420);
+  const dates = Object.keys(moments).sort();
+  const position = dates.indexOf(date);
+  const previous = position > 0 ? dates[position - 1] : null;
+  const next =
+    position >= 0 && position < dates.length - 1 ? dates[position + 1] : null;
 
   useFocusEffect(
     useCallback(() => {
@@ -31,6 +48,26 @@ export default function MomentScreen() {
       return () => setScreenFocused(false);
     }, []),
   );
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (active && enabled) setPaused(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) =>
+      setAppActive(state === "active"),
+    );
+    return () => subscription.remove();
+  }, []);
+
+  const goTo = (target: string | null) => {
+    if (target)
+      router.replace({ pathname: "/moment/[date]", params: { date: target } });
+  };
 
   if (!moment) {
     return (
@@ -49,7 +86,7 @@ export default function MomentScreen() {
   const deleteMoment = () =>
     Alert.alert(
       "Remove this moment?",
-      "This removes it from the prototype diary.",
+      "This removes the saved photo or video and its caption from your diary.",
       [
         { text: "Keep it", style: "cancel" },
         {
@@ -89,14 +126,44 @@ export default function MomentScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.eyebrow}>A MOMENT KEPT</Text>
         <Text style={styles.date}>{momentLabel(date)}</Text>
-        <View style={styles.mediaWrap}>
-          <MomentMedia
-            moment={moment}
-            size={mediaSize}
-            focused={screenFocused && !muted}
-            playing={screenFocused && !paused}
-          />
+        <View
+          style={[styles.mediaWrap, { width: mediaSize, height: mediaSize }]}
+          onTouchStart={(event) => {
+            touchStart.current = event.nativeEvent.pageX;
+          }}
+          onTouchEnd={(event) => {
+            if (touchStart.current === null || zoomed) return;
+            const distance = event.nativeEvent.pageX - touchStart.current;
+            touchStart.current = null;
+            if (distance > 75) goTo(previous);
+            if (distance < -75) goTo(next);
+          }}
+        >
+          {moment.kind === "photo" ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={zoomed ? "Zoom out photo" : "Zoom in photo"}
+              onPress={() => setZoomed((value) => !value)}
+              style={styles.photoFrame}
+            >
+              <View style={{ transform: [{ scale: zoomed ? 2 : 1 }] }}>
+                <MomentMedia moment={moment} size={mediaSize} />
+              </View>
+            </Pressable>
+          ) : (
+            <MomentMedia
+              moment={moment}
+              size={mediaSize}
+              focused={screenFocused && appActive && !muted}
+              playing={screenFocused && appActive && !paused}
+            />
+          )}
         </View>
+        {moment.kind === "photo" && (
+          <Text style={styles.mediaHint}>
+            {zoomed ? "Tap to fit" : "Tap to look closer"}
+          </Text>
+        )}
         {moment.kind === "video" && (
           <View style={styles.videoControls}>
             <TouchableOpacity
@@ -124,6 +191,29 @@ export default function MomentScreen() {
             {moment.caption || "No words needed for this one."}
           </Text>
         </View>
+        <View style={styles.memoryNav}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Previous saved moment"
+            disabled={!previous}
+            onPress={() => goTo(previous)}
+            style={[
+              styles.memoryNavButton,
+              !previous && styles.memoryNavDisabled,
+            ]}
+          >
+            <Text style={styles.memoryNavText}>‹ Previous</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Next saved moment"
+            disabled={!next}
+            onPress={() => goTo(next)}
+            style={[styles.memoryNavButton, !next && styles.memoryNavDisabled]}
+          >
+            <Text style={styles.memoryNavText}>Next ›</Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity
           accessibilityRole="button"
           onPress={deleteMoment}
@@ -137,7 +227,13 @@ export default function MomentScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.paper },
+  page: {
+    flex: 1,
+    backgroundColor: colors.paper,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+  },
   header: {
     height: 60,
     paddingHorizontal: 23,
@@ -164,11 +260,25 @@ const styles = StyleSheet.create({
   mediaWrap: {
     alignSelf: "center",
     marginTop: 28,
+    borderRadius: 24,
+    overflow: "hidden",
     shadowColor: "#45383F",
     shadowOffset: { width: 0, height: 13 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
     elevation: 5,
+  },
+  photoFrame: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mediaHint: {
+    color: colors.muted,
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 12,
   },
   videoControls: {
     flexDirection: "row",
@@ -198,6 +308,22 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 33,
   },
+  memoryNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 28,
+  },
+  memoryNavButton: {
+    minHeight: 44,
+    flex: 1,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  memoryNavDisabled: { opacity: 0.35 },
+  memoryNavText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
   remove: {
     alignSelf: "center",
     minHeight: 44,

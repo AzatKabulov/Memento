@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { VideoView, useVideoPlayer, type VideoPlayer } from "expo-video";
 import type { Moment } from "../state/DiaryContext";
 
 export function MomentMedia({
@@ -18,7 +18,7 @@ export function MomentMedia({
   if (moment.kind === "video" && moment.uri) {
     return (
       <VideoMedia
-        key={`${moment.uri}-${focused}`}
+        key={moment.uri}
         uri={moment.uri}
         size={size}
         focused={focused}
@@ -40,6 +40,10 @@ export function MomentMedia({
   );
 }
 
+function setPlayerMuted(player: VideoPlayer, muted: boolean) {
+  player.muted = muted;
+}
+
 function VideoMedia({
   uri,
   size,
@@ -55,6 +59,10 @@ function VideoMedia({
     video.loop = true;
     video.muted = !focused;
   });
+
+  useEffect(() => {
+    setPlayerMuted(player, !focused);
+  }, [player, focused]);
 
   useEffect(() => {
     if (playing) player.play();
