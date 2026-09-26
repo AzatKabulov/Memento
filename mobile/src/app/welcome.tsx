@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   backPhoto: {
     width: 220,
     height: 270,
-    borderRadius: 6,
+    borderRadius: 26,
     transform: [{ rotate: "9deg" }],
     position: "absolute",
     right: 14,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   frontPhoto: {
     width: 230,
     height: 290,
-    borderRadius: 6,
+    borderRadius: 26,
     transform: [{ rotate: "-8deg" }],
     position: "absolute",
     left: 13,
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     paddingHorizontal: 17,
     paddingVertical: 12,
-    borderRadius: 4,
+    borderRadius: 19,
     transform: [{ rotate: "-5deg" }],
     position: "absolute",
     bottom: 15,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   primary: {
     minHeight: 56,
-    borderRadius: 17,
+    borderRadius: 28,
     backgroundColor: colors.plum,
     alignItems: "center",
     justifyContent: "center",

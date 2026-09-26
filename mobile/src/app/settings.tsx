@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   list: {
     marginTop: 30,
     backgroundColor: colors.card,
-    borderRadius: 20,
+    borderRadius: 26,
     paddingHorizontal: 17,
   },
   item: {

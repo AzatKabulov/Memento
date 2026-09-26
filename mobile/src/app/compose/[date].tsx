@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Alert,
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 import { MomentMedia } from "../../components/MomentMedia";
 import { diaryDate, momentLabel } from "../../lib/dates";
+import { pickMedia, showPickMediaError } from "../../lib/pickMedia";
 import { colors, type } from "../../lib/theme";
 import { useDiary, type Moment } from "../../state/DiaryContext";
 
@@ -48,41 +48,17 @@ export default function Compose() {
 
   async function pickFromLibrary() {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"],
-        allowsEditing: false,
-        quality: 0.85,
-        selectionLimit: 1,
-      });
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-      const kind = asset.type === "video" ? "video" : "photo";
-      if (kind === "video" && typeof asset.duration !== "number") {
-        Alert.alert(
-          "Could not read video length",
-          "Choose another video and try again.",
-        );
-        return;
-      }
-      if (kind === "video" && asset.duration! > 60_000) {
-        Alert.alert(
-          "Choose a shorter video",
-          "Memento moments are up to 60 seconds. Trimming will be added after the native media prototype is validated.",
-        );
-        return;
-      }
+      const asset = await pickMedia();
+      if (!asset) return;
       setDraft({
         date,
-        kind,
+        kind: asset.kind,
         uri: asset.uri,
         caption,
-        duration: asset.duration ? asset.duration / 1000 : undefined,
+        duration: asset.duration,
       });
-    } catch {
-      Alert.alert(
-        "Could not open your library",
-        "Check photo access in Settings and try again.",
-      );
+    } catch (error) {
+      showPickMediaError(error);
     }
   }
 
@@ -258,7 +234,7 @@ const styles = StyleSheet.create({
   source: {
     flex: 1,
     minHeight: 103,
-    borderRadius: 17,
+    borderRadius: 24,
     backgroundColor: colors.card,
     padding: 14,
     justifyContent: "center",
@@ -274,7 +250,7 @@ const styles = StyleSheet.create({
   guidance: { marginTop: 10, color: colors.muted, fontSize: 12 },
   input: {
     backgroundColor: colors.card,
-    borderRadius: 17,
+    borderRadius: 24,
     padding: 16,
     minHeight: 105,
     textAlignVertical: "top",
@@ -307,7 +283,7 @@ const styles = StyleSheet.create({
   },
   save: {
     height: 55,
-    borderRadius: 17,
+    borderRadius: 28,
     backgroundColor: colors.plum,
     alignItems: "center",
     justifyContent: "center",

@@ -1,8 +1,11 @@
 import React, { useCallback, useRef, useState } from "react";
+import { Image } from "expo-image";
 import { Redirect, router, useFocusEffect } from "expo-router";
+import { BlurTargetView, BlurView } from "expo-blur";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../components/MomentMedia";
+import { AlbumGrid } from "../components/AlbumGrid";
 import {
   calendarCells,
   dateFromDiary,
@@ -20,6 +24,7 @@ import {
   monthLabel,
 } from "../lib/dates";
 import { colors, type } from "../lib/theme";
+import { pickMedia, showPickMediaError } from "../lib/pickMedia";
 import { useDiary, type Moment } from "../state/DiaryContext";
 
 const weekdays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -32,12 +37,18 @@ export default function CalendarScreen() {
   );
   const [preview, setPreview] = useState<Moment | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"album" | "calendar">("album");
   const [screenFocused, setScreenFocused] = useState(true);
+  const blurTargetRef = useRef<View | null>(null);
   const { width } = useWindowDimensions();
-  const tile = Math.floor((width - 4 - 6 * 8) / 7);
+  const viewportWidth = Math.min(width - (Platform.OS === "web" ? 16 : 0), 480);
+  const tile = Math.floor((viewportWidth - 4 - 6 * 8) / 7);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
   const cells = calendarCells(year, month);
+  const monthDates = cells.filter((date): date is string => !!date);
+  const latestDate = monthDates.filter((date) => moments[date]).at(-1);
+  const latestMoment = latestDate ? moments[latestDate] : undefined;
   const filled = cells.filter((date) => date && moments[date]).length;
   const previewVideos = cells
     .filter((date) => date && moments[date]?.kind === "video")
@@ -55,151 +66,257 @@ export default function CalendarScreen() {
 
   const changeMonth = (step: number) =>
     setVisibleMonth(new Date(year, month + step, 1));
-  const openDate = (date: string) => {
+  const openDate = async (date: string) => {
     if (held.current) {
       held.current = false;
       return;
     }
     if (moments[date])
       router.push({ pathname: "/moment/[date]", params: { date } });
-    else if (date <= today)
-      router.push({ pathname: "/compose/[date]", params: { date } });
+    else if (date === today)
+      router.push({ pathname: "/camera", params: { date } });
+    else if (date < today) {
+      try {
+        const media = await pickMedia();
+        if (media)
+          router.push({
+            pathname: "/compose/[date]",
+            params: { date, uri: media.uri, kind: media.kind },
+          });
+      } catch (error) {
+        showPickMediaError(error);
+      }
+    }
   };
 
   return (
     <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.topline}>
-          <View style={{ width: 44 }} />
-          <Text style={styles.brand}>Memento</Text>
-          <TouchableOpacity
-            accessibilityLabel="Settings"
-            accessibilityRole="button"
-            onPress={() => router.push("/settings")}
-            style={styles.settings}
-          >
-            <Text style={styles.settingsText}>•••</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.eyebrow}>YOUR DAYS, ONE MOMENT AT A TIME</Text>
-        <View style={styles.headingRow}>
-          <View>
-            <Text style={styles.sectionKicker}>THE CALENDAR</Text>
+      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={styles.topline}>
+            <View style={{ width: 44 }} />
+            <Text style={styles.brand}>Memento</Text>
+            <TouchableOpacity
+              accessibilityLabel="Settings"
+              accessibilityRole="button"
+              onPress={() => router.push("/settings")}
+              style={styles.settings}
+            >
+              <Text style={styles.settingsText}>•••</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.eyebrow}>YOUR DAYS, ONE MOMENT AT A TIME</Text>
+          <View style={styles.headingRow}>
+            <View>
+              <Text style={styles.sectionKicker}>THE CALENDAR</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Choose year"
+                onPress={() => setYearOpen(true)}
+                style={{ minHeight: 48, justifyContent: "center" }}
+              >
+                <Text
+                  style={[
+                    styles.monthTitle,
+                    { fontSize: 25, letterSpacing: 2 },
+                  ]}
+                >
+                  {monthLabel(year, month).toUpperCase()}{" "}
+                  <Text style={styles.down}>⌄</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel="Choose year"
-              onPress={() => setYearOpen(true)}
-              style={{ minHeight: 48, justifyContent: "center" }}
+              style={styles.todayPill}
+              onPress={() =>
+                setVisibleMonth(
+                  new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                )
+              }
+            >
+              <Text style={styles.todayText}>Today</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.monthNav}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+              onPress={() => changeMonth(-1)}
+              style={styles.arrow}
+            >
+              <Text style={styles.arrowText}>‹</Text>
+            </TouchableOpacity>
+            <Text style={styles.monthNote}>
+              {filled} {filled === 1 ? "moment" : "moments"} kept this month
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
+              onPress={() => changeMonth(1)}
+              style={styles.arrow}
+            >
+              <Text style={styles.arrowText}>›</Text>
+            </TouchableOpacity>
+          </View>
+          {latestDate && latestMoment && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open latest moment, ${momentLabel(latestDate)}`}
+              onPress={() => openDate(latestDate)}
+              style={styles.monthCover}
+            >
+              {latestMoment.kind === "photo" ? (
+                <Image
+                  source={latestMoment.sample ?? { uri: latestMoment.uri }}
+                  contentFit="cover"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : (
+                <MomentMedia
+                  moment={latestMoment}
+                  size={132}
+                  focused={false}
+                  playing={false}
+                />
+              )}
+              <View style={styles.coverShade} />
+              <Text style={styles.coverEyebrow}>A MOMENT FROM THIS MONTH</Text>
+              <View style={styles.coverCaptionWrap}>
+                <Text style={styles.coverDate}>{momentLabel(latestDate)}</Text>
+                <Text numberOfLines={1} style={styles.coverCaption}>
+                  {latestMoment.caption || "A moment kept."}
+                </Text>
+              </View>
+            </Pressable>
+          )}
+          <View style={styles.viewSwitch}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ selected: viewMode === "album" }}
+              onPress={() => setViewMode("album")}
+              style={[
+                styles.viewOption,
+                viewMode === "album" && styles.viewSelected,
+              ]}
             >
               <Text
-                style={[styles.monthTitle, { fontSize: 25, letterSpacing: 2 }]}
+                style={[
+                  styles.viewOptionText,
+                  viewMode === "album" && styles.viewSelectedText,
+                ]}
               >
-                {monthLabel(year, month).toUpperCase()}{" "}
-                <Text style={styles.down}>⌄</Text>
+                Album
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ selected: viewMode === "calendar" }}
+              onPress={() => setViewMode("calendar")}
+              style={[
+                styles.viewOption,
+                viewMode === "calendar" && styles.viewSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.viewOptionText,
+                  viewMode === "calendar" && styles.viewSelectedText,
+                ]}
+              >
+                Calendar
               </Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.todayPill}
-            onPress={() =>
-              setVisibleMonth(
-                new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-              )
-            }
-          >
-            <Text style={styles.todayText}>Today</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.monthNav}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Previous month"
-            onPress={() => changeMonth(-1)}
-            style={styles.arrow}
-          >
-            <Text style={styles.arrowText}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.monthNote}>
-            {filled} {filled === 1 ? "moment" : "moments"} kept this month
-          </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Next month"
-            onPress={() => changeMonth(1)}
-            style={styles.arrow}
-          >
-            <Text style={styles.arrowText}>›</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={[styles.weekRow, { marginHorizontal: -18 }]}>
-          {weekdays.map((day, index) => (
-            <Text key={index} style={[styles.weekLabel, { width: tile }]}>
-              {day}
-            </Text>
-          ))}
-        </View>
-        <View
-          style={[
-            styles.grid,
-            {
-              marginHorizontal: -18,
-              columnGap: 8,
-              justifyContent: "flex-start",
-            },
-          ]}
-        >
-          {cells.map((date, index) =>
-            date ? (
-              <DateTile
-                key={date}
-                date={date}
-                moment={moments[date]}
-                today={today}
-                size={tile}
-                playVideo={
-                  screenFocused && !preview && previewVideos.includes(date)
-                }
-                onOpen={() => openDate(date)}
-                onHold={() => {
-                  held.current = true;
-                  if (moments[date]) setPreview(moments[date]);
-                }}
-                onRelease={() => setPreview(null)}
-              />
-            ) : (
+          {viewMode === "album" ? (
+            <AlbumGrid
+              dates={monthDates}
+              moments={moments}
+              today={today}
+              playing={screenFocused && !preview}
+              onOpen={openDate}
+              onHold={(moment) => {
+                held.current = true;
+                setPreview(moment);
+              }}
+              onRelease={() => setPreview(null)}
+            />
+          ) : (
+            <>
+              <View style={[styles.weekRow, { marginHorizontal: -18 }]}>
+                {weekdays.map((day, index) => (
+                  <Text key={index} style={[styles.weekLabel, { width: tile }]}>
+                    {day}
+                  </Text>
+                ))}
+              </View>
               <View
-                key={`empty-${index}`}
-                style={{ width: tile, height: tile + 15 }}
-              />
-            ),
+                style={[
+                  styles.grid,
+                  {
+                    marginHorizontal: -18,
+                    columnGap: 8,
+                    justifyContent: "flex-start",
+                  },
+                ]}
+              >
+                {cells.map((date, index) =>
+                  date ? (
+                    <DateTile
+                      key={date}
+                      date={date}
+                      moment={moments[date]}
+                      today={today}
+                      size={tile}
+                      playVideo={
+                        screenFocused &&
+                        !preview &&
+                        previewVideos.includes(date)
+                      }
+                      onOpen={() => openDate(date)}
+                      onHold={() => {
+                        held.current = true;
+                        if (moments[date]) setPreview(moments[date]);
+                      }}
+                      onRelease={() => setPreview(null)}
+                    />
+                  ) : (
+                    <View
+                      key={`empty-${index}`}
+                      style={{ width: tile, height: tile + 15 }}
+                    />
+                  ),
+                )}
+              </View>
+            </>
           )}
-        </View>
-        <View style={styles.tip}>
-          <Text style={styles.tipTitle}>A little note</Text>
-          <Text style={styles.tipText}>
-            Some days have a photo. Some days are simply lived. Both belong
-            here.
-          </Text>
-        </View>
-      </ScrollView>
-      <View style={styles.bottomBar}>
+          <View style={styles.tip}>
+            <Text style={styles.tipTitle}>A little note</Text>
+            <Text style={styles.tipText}>
+              Some days have a photo. Some days are simply lived. Both belong
+              here.
+            </Text>
+          </View>
+        </ScrollView>
+      </BlurTargetView>
+      <BlurView
+        blurTarget={blurTargetRef}
+        blurMethod="dimezisBlurViewSdk31Plus"
+        intensity={65}
+        tint="systemThinMaterialDark"
+        style={styles.bottomBar}
+      >
         <TouchableOpacity
           accessibilityRole="button"
           style={styles.addButton}
-          onPress={() =>
-            router.push({
-              pathname: "/compose/[date]",
-              params: { date: today },
-            })
-          }
+          onPress={() => openDate(today)}
         >
           <Text style={[styles.plus, { color: colors.buttonInk }]}>＋</Text>
           <Text style={[styles.addText, { color: colors.buttonInk }]}>
-            Add today’s moment
+            {moments[today] ? "View today’s moment" : "Capture today’s moment"}
           </Text>
         </TouchableOpacity>
-      </View>
+      </BlurView>
       <Modal
         visible={!!preview}
         transparent
@@ -316,7 +433,7 @@ function DateTile({
       <View
         style={[
           styles.tile,
-          { width: size, height: size, borderRadius: 3 },
+          { width: size, height: size },
           date === today && styles.todayTile,
         ]}
       >
@@ -343,7 +460,13 @@ function DateTile({
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.paper },
+  page: {
+    flex: 1,
+    backgroundColor: colors.paper,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+  },
   scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110 },
   topline: {
     flexDirection: "row",
@@ -355,7 +478,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.card,
+    backgroundColor: "rgba(255,255,255,0.09)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -390,7 +515,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.card,
+    backgroundColor: "rgba(255,255,255,0.09)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 3,
@@ -410,10 +537,75 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   arrowText: { color: colors.ink, fontSize: 29, lineHeight: 30, marginTop: -4 },
   monthNote: { color: colors.muted, fontSize: 12 },
+  monthCover: {
+    height: 165,
+    marginBottom: 18,
+    borderRadius: 26,
+    overflow: "hidden",
+    backgroundColor: colors.card,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coverShade: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(15,14,14,0.32)",
+  },
+  coverEyebrow: {
+    position: "absolute",
+    top: 14,
+    left: 16,
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.3,
+    backgroundColor: "rgba(20,20,20,0.42)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    overflow: "hidden",
+  },
+  coverCaptionWrap: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 15,
+    borderRadius: 16,
+    backgroundColor: "rgba(20,20,20,0.42)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  coverDate: { color: colors.white, fontFamily: type.display, fontSize: 16 },
+  coverCaption: { color: "rgba(255,255,255,0.83)", fontSize: 11, marginTop: 2 },
+  viewSwitch: {
+    flexDirection: "row",
+    padding: 4,
+    marginBottom: 18,
+    borderRadius: 23,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  viewOption: {
+    flex: 1,
+    minHeight: 39,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewSelected: { backgroundColor: "rgba(255,255,255,0.16)" },
+  viewOptionText: { color: colors.muted, fontWeight: "600", fontSize: 13 },
+  viewSelectedText: { color: colors.ink },
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -483,19 +675,19 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 13,
-    backgroundColor: colors.paper,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    left: 12,
+    right: 12,
+    bottom: Platform.OS === "web" ? 12 : 10,
+    padding: 8,
+    borderRadius: 30,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.23)",
+    backgroundColor: "rgba(55,53,52,0.48)",
   },
   addButton: {
     height: 56,
-    borderRadius: 18,
+    borderRadius: 24,
     backgroundColor: colors.plum,
     flexDirection: "row",
     alignItems: "center",
@@ -552,7 +744,7 @@ const styles = StyleSheet.create({
     width: "22%",
     backgroundColor: colors.card,
     paddingVertical: 13,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: "center",
   },
   yearMonthText: { color: colors.ink, fontSize: 13 },

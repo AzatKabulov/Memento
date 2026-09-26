@@ -8,6 +8,7 @@ import {
 } from "expo-camera";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { diaryDate } from "../lib/dates";
+import { pickMedia, showPickMediaError } from "../lib/pickMedia";
 import { colors } from "../lib/theme";
 
 export default function CameraScreen() {
@@ -18,6 +19,20 @@ export default function CameraScreen() {
   const [recording, setRecording] = useState(false);
   const camera = useRef<CameraView>(null);
   const busy = useRef(false);
+
+  async function chooseFromLibrary() {
+    if (recording || busy.current) return;
+    try {
+      const media = await pickMedia();
+      if (media)
+        router.replace({
+          pathname: "/compose/[date]",
+          params: { date, uri: media.uri, kind: media.kind },
+        });
+    } catch (error) {
+      showPickMediaError(error);
+    }
+  }
 
   if (date !== diaryDate(new Date()))
     return (
@@ -43,8 +58,11 @@ export default function CameraScreen() {
               Allow camera
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.library} onPress={chooseFromLibrary}>
+            <Text style={styles.libraryText}>Choose from library</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backText}>Back to editor</Text>
+            <Text style={styles.backText}>Back to calendar</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -172,6 +190,14 @@ export default function CameraScreen() {
                 ? "Up to 60 seconds"
                 : "Tap to capture"}
           </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            disabled={recording}
+            style={styles.library}
+            onPress={chooseFromLibrary}
+          >
+            <Text style={styles.libraryText}>Choose from library</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </View>
@@ -236,6 +262,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#C8534F",
   },
   limit: { color: "#fff", fontSize: 12, marginTop: 14 },
+  library: {
+    minHeight: 44,
+    marginTop: 17,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(23,20,23,0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  libraryText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   permission: {
     flex: 1,
     justifyContent: "center",
@@ -259,7 +297,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
     paddingHorizontal: 28,
     paddingVertical: 15,
-    borderRadius: 15,
+    borderRadius: 24,
     marginTop: 24,
   },
   allowText: { color: colors.plum, fontWeight: "700" },
