@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../../components/MomentMedia";
+import { shareMoment } from "../../archive/DiaryArchive";
 import { momentLabel } from "../../lib/dates";
 import { colors, type } from "../../lib/theme";
 import { useDiary } from "../../state/DiaryContext";
@@ -214,6 +215,19 @@ function MomentView({ date }: { date: string }) {
             <Text style={styles.memoryNavText}>Next ›</Text>
           </TouchableOpacity>
         </View>
+        {!!moment.uri && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() =>
+              void shareMoment(moment).catch(() =>
+                Alert.alert("Could not share this moment", "Please try again."),
+              )
+            }
+            style={styles.share}
+          >
+            <Text style={styles.shareText}>Share original file</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           accessibilityRole="button"
           onPress={deleteMoment}
@@ -324,6 +338,16 @@ const styles = StyleSheet.create({
   },
   memoryNavDisabled: { opacity: 0.35 },
   memoryNavText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+  share: {
+    alignSelf: "center",
+    minHeight: 48,
+    paddingHorizontal: 22,
+    borderRadius: 24,
+    backgroundColor: colors.card,
+    justifyContent: "center",
+    marginTop: 26,
+  },
+  shareText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
   remove: {
     alignSelf: "center",
     minHeight: 44,

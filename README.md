@@ -2,7 +2,7 @@
 
 Memento is a private visual diary for iPhone and Android. Keep one photo or short video for each date and browse the days as a personal calendar. Volume 1 is personal only; sharing belongs to a later release.
 
-The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction](DESIGN.md) records the matte calendar design, and the [build plan](BUILD_PLAN.md) tracks the full release path. [Phase 2–3 progress](PHASE_2_3_PROGRESS.md) distinguishes the working prototype from features still to build. [Phase 6 progress](PHASE_6_PROGRESS.md) covers calendar browsing and the memory viewer. [Phase 7 progress](PHASE_7_PROGRESS.md) records private-backup setup and remaining validation.
+The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction](DESIGN.md) records the matte calendar design, and the [build plan](BUILD_PLAN.md) tracks the full release path. [Phase 2–3 progress](PHASE_2_3_PROGRESS.md) distinguishes the working prototype from features still to build. [Phase 6 progress](PHASE_6_PROGRESS.md) covers calendar browsing and the memory viewer. [Phase 7 progress](PHASE_7_PROGRESS.md) records private-backup setup and remaining validation. [Phase 8 progress](PHASE_8_PROGRESS.md) covers reminders, settings, and portable archives.
 
 ## Run the prototype
 
@@ -13,7 +13,7 @@ npm ci
 npm start
 ```
 
-Open it in Expo Go or a development build on a supported phone, or run `npm run web` for layout review. Without account configuration, this is a sample-memory preview and new moments disappear when the app restarts. Phase 4 adds native email accounts and account-scoped local storage; [Phase 4 progress](PHASE_4_PROGRESS.md) records what still needs backend and device verification. [Phase 5 progress](PHASE_5_PROGRESS.md) tracks capture and editing work. Phase 7 adds native backup code that needs a configured Supabase project and device verification; export remains a later phase.
+Open it in Expo Go or a development build on a supported phone, or run `npm run web` for layout review. Without account configuration, this is a sample-memory preview and new moments disappear when the app restarts. Phase 4 adds native email accounts and account-scoped local storage; [Phase 4 progress](PHASE_4_PROGRESS.md) records what still needs backend and device verification. [Phase 5 progress](PHASE_5_PROGRESS.md) tracks capture and editing work. Phase 7 adds native backup code that needs a configured Supabase project and device verification. Phase 8 adds native reminder and archive flows that still need device tests.
 
 To connect a Supabase project, copy `mobile/.env.example` to `mobile/.env` and set its project URL and publishable key. Never put a service-role key in the app. Configure email confirmation and allow the `memento://auth/callback` and `memento://auth/reset` redirect URLs in Supabase. Google and Apple providers still need credentials and native testing.
 

@@ -23,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../components/MomentMedia";
+import { useSettings } from "../settings/SettingsContext";
 import { VideoPoster } from "../components/VideoPoster";
 import {
   calendarCells,
@@ -39,6 +40,7 @@ const weekdays = ["M", "T", "W", "T", "F", "S", "S"];
 
 export default function CalendarScreen() {
   const { entered, ready, storageError, retryLoad, moments } = useDiary();
+  const { autoplay } = useSettings();
   const today = diaryDate(new Date());
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -85,6 +87,7 @@ export default function CalendarScreen() {
     .map(({ date }) => date)
     .slice(0, 2);
   const canPreview =
+    autoplay &&
     screenFocused &&
     appActive &&
     !reduceMotion &&

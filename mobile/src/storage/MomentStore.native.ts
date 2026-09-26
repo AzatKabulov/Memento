@@ -122,6 +122,8 @@ export function fileExtension(uri: string, kind: Moment["kind"]) {
   return extension?.toLowerCase() ?? (kind === "photo" ? "jpg" : "mp4");
 }
 
+export class MomentAlreadyExistsError extends Error {}
+
 export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
   const db = await database;
   const referenced = await db.getAllAsync<{ path: string }>(
@@ -163,9 +165,20 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
   }));
 }
 
+export async function hasMomentLocally(ownerId: string, date: string) {
+  const db = await database;
+  const row = await db.getFirstAsync<{ present: number }>(
+    "SELECT 1 AS present FROM entries WHERE owner_id = ? AND diary_date = ? AND deleted_at IS NULL LIMIT 1",
+    ownerId,
+    date,
+  );
+  return !!row;
+}
+
 export async function saveMomentLocally(
   ownerId: string,
   moment: Moment,
+  requireEmpty = false,
 ): Promise<Moment> {
   if (!moment.uri) throw new Error("Choose a photo or video before saving.");
   if (
@@ -227,14 +240,17 @@ export async function saveMomentLocally(
         media_id: string;
         path: string;
         source: "camera" | "library";
+        deleted_at: string | null;
       }>(
-        `SELECT e.id, e.media_id, e.source, m.path FROM entries e
+        `SELECT e.id, e.media_id, e.source, e.deleted_at, m.path FROM entries e
          JOIN media m ON m.id = e.media_id
          WHERE e.owner_id = ? AND e.diary_date = ?
          ORDER BY (e.deleted_at IS NULL) DESC, e.updated_at DESC LIMIT 1`,
         ownerId,
         moment.date,
       );
+      if (requireEmpty && existing && !existing.deleted_at)
+        throw new MomentAlreadyExistsError("This date already has a memory.");
       const now = new Date().toISOString();
       const mediaId = needsCopy ? randomUUID() : existing?.media_id;
       if (!mediaId)
