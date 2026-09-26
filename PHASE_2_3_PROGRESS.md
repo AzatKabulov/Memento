@@ -2,11 +2,11 @@
 
 ## Phase 2 — design
 
-The owner selected the **matte photo album** direction. The [visual reference](design/matte-album-concept.png) is an aesthetic guide, not a literal layout. `DESIGN.md` records the palette, type, media treatment, interaction rules, and states.
+The owner selected the **matte photo album** direction as an aesthetic reference, then clarified that Memento should have only a calendar view. The [visual reference](design/matte-album-concept.png) is a mood guide, not a second view or literal layout. `DESIGN.md` records the palette, type, media treatment, interaction rules, and states.
 
-A clickable Expo prototype now connects welcome → monthly album → date → camera or library → editor → viewer → edit. The current month opens first. The album uses large rounded photo cards, a cover memory, restrained translucent controls, and a floating blurred capture action. A compact calendar remains available. Empty past days open the library directly; today opens the camera with a library option; future dates are inactive. There is a year jump, sample memories, a quiet hold preview, and separate settings placeholders.
+A clickable Expo prototype now connects welcome → monthly calendar → date → camera or library → editor → viewer → edit. The current month opens first. Photos fill their calendar dates; the date label covers only a small corner. Rounded translucent controls and a floating blurred capture action frame the calendar. Empty past days open the library directly; today opens the camera with a library option; future dates are inactive. There is a year jump, sample memories, a quiet hold preview, and separate settings placeholders.
 
-The [welcome](design/prototype-welcome.png), [monthly album](design/prototype-calendar.png), [visible photo cards](design/prototype-album-moments.png), and [moment viewer](design/prototype-moment.png) were visually checked in a 390 × 844 web viewport. The photo-first month uses three columns of large image cards; the compact calendar is secondary. A past-date library import was exercised through the editor and saved to the moment viewer in the web prototype. Native scaling, blur performance, and large-text behavior still need device checks.
+The [welcome](design/prototype-welcome.png), [calendar](design/prototype-calendar.png), and [moment viewer](design/prototype-moment.png) were visually checked in a 390 × 844 web viewport. The calendar keeps seven columns, with slightly tighter gaps to give each photo more area. A past-date library import was exercised through the editor and saved to the moment viewer in the web prototype. Native scaling, blur performance, and large-text behavior still need device checks.
 
 Still to design and review: full sign-in/recovery states, long-video trimming, complete permission/offline/failure screens, backup/restore/export flows, accessibility pass, and physical-device interaction polish. These depend on later working services and native proof.
 

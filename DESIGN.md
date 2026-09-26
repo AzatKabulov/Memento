@@ -1,26 +1,26 @@
 # Memento visual direction
 
-Memento should feel like opening a personal photo album in a quiet room. Photographs carry the color, while the surrounding interface is matte charcoal. A missed date is a calm, dark space. Rounded, translucent controls add a gentle glass quality without obscuring memories.
+Memento should feel like a quiet personal diary. Photographs carry the color, while the surrounding interface is matte charcoal. A missed date is a calm, dark space. Rounded, translucent controls add a gentle glass quality without obscuring memories.
 
-The owner selected the **matte photo album** concept. [Visual reference](design/matte-album-concept.png) shows its mood and photo-first treatment; its sample dates and navigation labels are illustrative, not product rules.
+The owner selected the **matte photo album** concept for its visual mood, then clarified that the app has **one monthly calendar view**, not a separate album view. [Visual reference](design/matte-album-concept.png) shows the mood; its sample dates and navigation labels are illustrative, not product rules.
 
-Phone-size prototype captures: [welcome](design/prototype-welcome.png), [monthly album](design/prototype-calendar.png), [visible photo cards](design/prototype-album-moments.png), and [moment viewer](design/prototype-moment.png). These are web layout previews of the React Native app; native captures follow during device testing.
+Phone-size prototype captures: [welcome](design/prototype-welcome.png), [calendar](design/prototype-calendar.png), and [moment viewer](design/prototype-moment.png). These are web layout previews of the React Native app; native captures follow during device testing.
 
 ## Design decisions
 
-- **Palette:** matte charcoal `#212121`, raised charcoal `#2D2C2B`, ivory ink `#F1EAE2`, muted stone `#A8A29B`, hairline `#44413E`, and a restrained warm-ivory action color. Light mode is deferred until the core dark album is validated.
+- **Palette:** matte charcoal `#212121`, raised charcoal `#2D2C2B`, ivory ink `#F1EAE2`, muted stone `#A8A29B`, hairline `#44413E`, and a restrained warm-ivory action color. Light mode is deferred until the core dark calendar is validated.
 - **Typography:** clear system text for controls and small metadata; a serif face for the Memento wordmark, month title, and memory headings. Avoid decorative text for long captions.
-- **Shape:** generously rounded photo cards, circular video windows, and pill-shaped actions. Photo cards stay large enough to recognize without opening them.
+- **Shape:** rounded calendar dates, circular video windows, and pill-shaped actions. Photos fill their date tiles and remain as visible as the seven-column calendar permits.
 - **Glass:** translucent navigation and action surfaces, restrained borders, and blur on the floating capture bar. Do not blur or wash out photos. Check Android rendering and contrast on devices.
 - **App icon:** a simple pair of photo frames with a sun and horizon, in ivory on charcoal. It remains provisional until checked at launcher sizes on both phones.
 - **Motion:** short fades and subtle scale on hold preview. Tap always opens the full moment, so hold is optional. Respect reduced-motion settings when animation is added.
-- **Navigation:** the photo-first monthly album opens first, with a compact calendar switch for date scanning. A month cover shows an existing moment immediately. Today is prominent, month navigation is close to the month title, and settings is secondary. Native back behavior must work on both systems.
+- **Navigation:** the monthly calendar is the sole main view. Today is prominent, month navigation is close to the month title, and settings is secondary. Native back behavior must work on both systems.
 - **Language:** intimate and plain. Empty states invite a memory without implying a missed day is a failure.
 
 ## Phase 2 screen map
 
 1. Welcome/sign-in concept, then empty calendar.
-2. Month album, compact calendar switch, year jump, today action, occupied and empty days.
+2. Month calendar, year jump, today action, occupied and empty days.
 3. Tapping an empty today opens the camera with a library action below capture. Tapping an empty past date opens the library directly. Future dates stay inactive.
 4. Editor: media framing, selected date, optional caption, Save.
 5. Moment viewer: circular video with sound when opened, photo viewing, caption, edit/delete, and hold preview from the calendar.

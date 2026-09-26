@@ -15,7 +15,6 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../components/MomentMedia";
-import { AlbumGrid } from "../components/AlbumGrid";
 import {
   calendarCells,
   dateFromDiary,
@@ -37,18 +36,14 @@ export default function CalendarScreen() {
   );
   const [preview, setPreview] = useState<Moment | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"album" | "calendar">("album");
   const [screenFocused, setScreenFocused] = useState(true);
   const blurTargetRef = useRef<View | null>(null);
   const { width } = useWindowDimensions();
   const viewportWidth = Math.min(width - (Platform.OS === "web" ? 16 : 0), 480);
-  const tile = Math.floor((viewportWidth - 4 - 6 * 8) / 7);
+  const tile = Math.floor((viewportWidth - 4 - 6 * 5) / 7);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
   const cells = calendarCells(year, month);
-  const monthDates = cells.filter((date): date is string => !!date);
-  const latestDate = monthDates.filter((date) => moments[date]).at(-1);
-  const latestMoment = latestDate ? moments[latestDate] : undefined;
   const filled = cells.filter((date) => date && moments[date]).length;
   const previewVideos = cells
     .filter((date) => date && moments[date]?.kind === "video")
@@ -159,137 +154,49 @@ export default function CalendarScreen() {
               <Text style={styles.arrowText}>›</Text>
             </TouchableOpacity>
           </View>
-          {latestDate && latestMoment && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Open latest moment, ${momentLabel(latestDate)}`}
-              onPress={() => openDate(latestDate)}
-              style={styles.monthCover}
-            >
-              {latestMoment.kind === "photo" ? (
-                <Image
-                  source={latestMoment.sample ?? { uri: latestMoment.uri }}
-                  contentFit="cover"
-                  style={StyleSheet.absoluteFill}
+          <View style={[styles.weekRow, { marginHorizontal: -18 }]}>
+            {weekdays.map((day, index) => (
+              <Text key={index} style={[styles.weekLabel, { width: tile }]}>
+                {day}
+              </Text>
+            ))}
+          </View>
+          <View
+            style={[
+              styles.grid,
+              {
+                marginHorizontal: -18,
+                columnGap: 5,
+                justifyContent: "flex-start",
+              },
+            ]}
+          >
+            {cells.map((date, index) =>
+              date ? (
+                <DateTile
+                  key={date}
+                  date={date}
+                  moment={moments[date]}
+                  today={today}
+                  size={tile}
+                  playVideo={
+                    screenFocused && !preview && previewVideos.includes(date)
+                  }
+                  onOpen={() => openDate(date)}
+                  onHold={() => {
+                    held.current = true;
+                    if (moments[date]) setPreview(moments[date]);
+                  }}
+                  onRelease={() => setPreview(null)}
                 />
               ) : (
-                <MomentMedia
-                  moment={latestMoment}
-                  size={132}
-                  focused={false}
-                  playing={false}
+                <View
+                  key={`empty-${index}`}
+                  style={{ width: tile, height: tile + 15 }}
                 />
-              )}
-              <View style={styles.coverShade} />
-              <Text style={styles.coverEyebrow}>A MOMENT FROM THIS MONTH</Text>
-              <View style={styles.coverCaptionWrap}>
-                <Text style={styles.coverDate}>{momentLabel(latestDate)}</Text>
-                <Text numberOfLines={1} style={styles.coverCaption}>
-                  {latestMoment.caption || "A moment kept."}
-                </Text>
-              </View>
-            </Pressable>
-          )}
-          <View style={styles.viewSwitch}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ selected: viewMode === "album" }}
-              onPress={() => setViewMode("album")}
-              style={[
-                styles.viewOption,
-                viewMode === "album" && styles.viewSelected,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.viewOptionText,
-                  viewMode === "album" && styles.viewSelectedText,
-                ]}
-              >
-                Album
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ selected: viewMode === "calendar" }}
-              onPress={() => setViewMode("calendar")}
-              style={[
-                styles.viewOption,
-                viewMode === "calendar" && styles.viewSelected,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.viewOptionText,
-                  viewMode === "calendar" && styles.viewSelectedText,
-                ]}
-              >
-                Calendar
-              </Text>
-            </TouchableOpacity>
+              ),
+            )}
           </View>
-          {viewMode === "album" ? (
-            <AlbumGrid
-              dates={monthDates}
-              moments={moments}
-              today={today}
-              playing={screenFocused && !preview}
-              onOpen={openDate}
-              onHold={(moment) => {
-                held.current = true;
-                setPreview(moment);
-              }}
-              onRelease={() => setPreview(null)}
-            />
-          ) : (
-            <>
-              <View style={[styles.weekRow, { marginHorizontal: -18 }]}>
-                {weekdays.map((day, index) => (
-                  <Text key={index} style={[styles.weekLabel, { width: tile }]}>
-                    {day}
-                  </Text>
-                ))}
-              </View>
-              <View
-                style={[
-                  styles.grid,
-                  {
-                    marginHorizontal: -18,
-                    columnGap: 8,
-                    justifyContent: "flex-start",
-                  },
-                ]}
-              >
-                {cells.map((date, index) =>
-                  date ? (
-                    <DateTile
-                      key={date}
-                      date={date}
-                      moment={moments[date]}
-                      today={today}
-                      size={tile}
-                      playVideo={
-                        screenFocused &&
-                        !preview &&
-                        previewVideos.includes(date)
-                      }
-                      onOpen={() => openDate(date)}
-                      onHold={() => {
-                        held.current = true;
-                        if (moments[date]) setPreview(moments[date]);
-                      }}
-                      onRelease={() => setPreview(null)}
-                    />
-                  ) : (
-                    <View
-                      key={`empty-${index}`}
-                      style={{ width: tile, height: tile + 15 }}
-                    />
-                  ),
-                )}
-              </View>
-            </>
-          )}
           <View style={styles.tip}>
             <Text style={styles.tipTitle}>A little note</Text>
             <Text style={styles.tipText}>
@@ -439,13 +346,20 @@ function DateTile({
       >
         {moment ? (
           <>
-            <MomentMedia
-              moment={moment}
-              size={size - 2}
-              focused={false}
-              playing={playVideo}
-            />
-            <View style={styles.tileShade} />
+            {moment.kind === "photo" ? (
+              <Image
+                source={moment.sample ?? { uri: moment.uri }}
+                contentFit="cover"
+                style={StyleSheet.absoluteFill}
+              />
+            ) : (
+              <MomentMedia
+                moment={moment}
+                size={size}
+                focused={false}
+                playing={playVideo}
+              />
+            )}
             <Text style={styles.tileNumberFilled}>{day}</Text>
             {moment.kind === "video" && <Text style={styles.videoDot}>●</Text>}
           </>
@@ -542,70 +456,6 @@ const styles = StyleSheet.create({
   },
   arrowText: { color: colors.ink, fontSize: 29, lineHeight: 30, marginTop: -4 },
   monthNote: { color: colors.muted, fontSize: 12 },
-  monthCover: {
-    height: 165,
-    marginBottom: 18,
-    borderRadius: 26,
-    overflow: "hidden",
-    backgroundColor: colors.card,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  coverShade: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: "rgba(15,14,14,0.32)",
-  },
-  coverEyebrow: {
-    position: "absolute",
-    top: 14,
-    left: 16,
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.3,
-    backgroundColor: "rgba(20,20,20,0.42)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    overflow: "hidden",
-  },
-  coverCaptionWrap: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 15,
-    borderRadius: 16,
-    backgroundColor: "rgba(20,20,20,0.42)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  coverDate: { color: colors.white, fontFamily: type.display, fontSize: 16 },
-  coverCaption: { color: "rgba(255,255,255,0.83)", fontSize: 11, marginTop: 2 },
-  viewSwitch: {
-    flexDirection: "row",
-    padding: 4,
-    marginBottom: 18,
-    borderRadius: 23,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  viewOption: {
-    flex: 1,
-    minHeight: 39,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  viewSelected: { backgroundColor: "rgba(255,255,255,0.16)" },
-  viewOptionText: { color: colors.muted, fontWeight: "600", fontSize: 13 },
-  viewSelectedText: { color: colors.ink },
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -632,19 +482,19 @@ const styles = StyleSheet.create({
   todayTile: { borderColor: colors.plum, borderWidth: 2 },
   tileNumber: { color: colors.muted, fontSize: 14 },
   futureNumber: { opacity: 0.32 },
-  tileShade: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 23,
-    backgroundColor: "rgba(20,15,14,0.26)",
-  },
   tileNumberFilled: {
     position: "absolute",
     color: colors.white,
     bottom: 3,
-    fontSize: 12,
+    left: 3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    overflow: "hidden",
+    backgroundColor: "rgba(20,15,14,0.56)",
+    textAlign: "center",
+    lineHeight: 18,
+    fontSize: 11,
     fontWeight: "700",
   },
   videoDot: {
