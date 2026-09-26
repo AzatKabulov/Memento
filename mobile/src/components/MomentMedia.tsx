@@ -30,6 +30,7 @@ export function MomentMedia({
     <Image
       source={moment.sample ?? { uri: moment.uri }}
       contentFit="cover"
+      contentPosition={moment.frame ?? "center"}
       style={{
         width: size,
         height: size,

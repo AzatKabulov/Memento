@@ -23,6 +23,7 @@ export default function Compose() {
     uri?: string;
     kind?: "photo" | "video";
     source?: "camera" | "library";
+    duration?: string;
   }>();
   const date = params.date;
   const today = diaryDate(new Date());
@@ -37,6 +38,8 @@ export default function Compose() {
           source: params.source === "camera" ? "camera" : "library",
           uri: params.uri,
           caption: existing?.caption ?? "",
+          duration: params.duration ? Number(params.duration) : undefined,
+          frame: existing?.frame ?? "center",
         }
       : (existing ?? null),
   );
@@ -61,6 +64,7 @@ export default function Compose() {
         uri: asset.uri,
         caption,
         duration: asset.duration,
+        frame: "center",
       });
     } catch (error) {
       showPickMediaError(error);
@@ -86,16 +90,15 @@ export default function Compose() {
   function leave() {
     if (
       draft &&
-      (!existing || draft.uri !== existing.uri || caption !== existing.caption)
+      (!existing ||
+        draft.uri !== existing.uri ||
+        caption !== existing.caption ||
+        (draft.frame ?? "center") !== (existing.frame ?? "center"))
     ) {
-      Alert.alert(
-        "Leave this draft?",
-        "Changes in this prototype will be lost.",
-        [
-          { text: "Keep writing", style: "cancel" },
-          { text: "Leave", style: "destructive", onPress: () => router.back() },
-        ],
-      );
+      Alert.alert("Leave this draft?", "Unsaved changes will be lost.", [
+        { text: "Keep writing", style: "cancel" },
+        { text: "Leave", style: "destructive", onPress: () => router.back() },
+      ]);
     } else router.back();
   }
 
@@ -130,6 +133,41 @@ export default function Compose() {
             </View>
           )}
         </View>
+        {draft?.kind === "photo" && (
+          <View style={styles.framing}>
+            <Text style={styles.fieldLabel}>FRAME IN YOUR CALENDAR</Text>
+            <Text style={styles.frameHint}>
+              The full photo stays saved. Choose what appears in its square.
+            </Text>
+            <View style={styles.frameOptions}>
+              {(["top", "center", "bottom"] as const).map((position) => (
+                <TouchableOpacity
+                  key={position}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: (draft.frame ?? "center") === position,
+                  }}
+                  onPress={() => setDraft({ ...draft, frame: position })}
+                  style={[
+                    styles.frameOption,
+                    (draft.frame ?? "center") === position &&
+                      styles.frameOptionSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.frameOptionText,
+                      (draft.frame ?? "center") === position &&
+                        styles.frameOptionTextSelected,
+                    ]}
+                  >
+                    {position[0].toUpperCase() + position.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
         <Text style={styles.fieldLabel}>CHOOSE YOUR MOMENT</Text>
         <View style={styles.sources}>
           {date === today && (
@@ -175,7 +213,7 @@ export default function Compose() {
         <Text style={styles.prototype}>
           {auth.configured
             ? "Saved on this phone. Private cloud backup is coming later."
-            : "Prototype preview: moments stay in memory while the app is open. Private storage and backup are built in later phases."}
+            : "Preview mode: this moment stays only while the app is open."}
         </Text>
       </ScrollView>
       <View style={styles.footer}>
@@ -245,6 +283,29 @@ const styles = StyleSheet.create({
     marginTop: 27,
     marginBottom: 12,
   },
+  framing: { marginTop: 7 },
+  frameHint: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  frameOptions: { flexDirection: "row", gap: 9 },
+  frameOption: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  frameOptionSelected: {
+    backgroundColor: colors.plum,
+    borderColor: colors.plum,
+  },
+  frameOptionText: { color: colors.ink, fontWeight: "600", fontSize: 12 },
+  frameOptionTextSelected: { color: colors.buttonInk },
   sources: { flexDirection: "row", gap: 12 },
   source: {
     flex: 1,

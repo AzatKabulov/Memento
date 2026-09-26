@@ -98,6 +98,7 @@ export default function CalendarScreen() {
               uri: media.uri,
               kind: media.kind,
               source: "library",
+              duration: media.duration?.toString(),
             },
           });
       } catch (error) {
@@ -372,6 +373,7 @@ function DateTile({
               <Image
                 source={moment.sample ?? { uri: moment.uri }}
                 contentFit="cover"
+                contentPosition={moment.frame ?? "center"}
                 style={StyleSheet.absoluteFill}
               />
             ) : (

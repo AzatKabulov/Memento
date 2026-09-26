@@ -2,6 +2,8 @@ import { randomUUID } from "expo-crypto";
 import { Directory, File, Paths } from "expo-file-system";
 import * as SQLite from "expo-sqlite";
 import type { Moment } from "../state/DiaryContext";
+import { mediaLimitIssue, mediaLimitMessage } from "../lib/mediaRules";
+import { diaryDate } from "../lib/dates";
 
 type EntryRow = {
   id: string;
@@ -11,17 +13,19 @@ type EntryRow = {
   source: "camera" | "library";
   path: string;
   duration_ms: number | null;
+  frame_y: "top" | "center" | "bottom";
 };
 
 const database = SQLite.openDatabaseAsync("memento.db").then(async (db) => {
   const version = await db.getFirstAsync<{ user_version: number }>(
     "PRAGMA user_version",
   );
-  if ((version?.user_version ?? 0) > 1)
+  if ((version?.user_version ?? 0) > 2)
     throw new Error("This diary needs a newer Memento version.");
   await db.execAsync("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   if ((version?.user_version ?? 0) < 1)
     await db.execAsync(`
+    BEGIN IMMEDIATE;
     CREATE TABLE IF NOT EXISTS media (
       id TEXT PRIMARY KEY,
       owner_id TEXT NOT NULL,
@@ -65,7 +69,12 @@ const database = SQLite.openDatabaseAsync("memento.db").then(async (db) => {
       created_at TEXT NOT NULL
     );
     PRAGMA user_version = 1;
+    COMMIT;
   `);
+  if ((version?.user_version ?? 0) < 2)
+    await db.execAsync(
+      "BEGIN IMMEDIATE; ALTER TABLE entries ADD COLUMN frame_y TEXT NOT NULL DEFAULT 'center' CHECK(frame_y IN ('top', 'center', 'bottom')); PRAGMA user_version = 2; COMMIT;",
+    );
   return db;
 });
 
@@ -87,7 +96,7 @@ function mediaUri(ownerId: string, path: string) {
 function fileExtension(uri: string, kind: Moment["kind"]) {
   const extension = uri
     .split(/[?#]/)[0]
-    .match(/\.(jpe?g|png|heic|mp4|mov|m4v)$/i)?.[1];
+    .match(/\.(jpe?g|png|heic|heif|webp|avif|gif|mp4|mov|m4v)$/i)?.[1];
   return extension?.toLowerCase() ?? (kind === "photo" ? "jpg" : "mp4");
 }
 
@@ -104,7 +113,9 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
     for (const item of ownerDirectory(ownerId).list()) {
       if (
         item instanceof File &&
-        /^[0-9a-f-]{36}\.(jpe?g|png|heic|mp4|mov|m4v)$/i.test(item.name) &&
+        /^[0-9a-f-]{36}\.(jpe?g|png|heic|heif|webp|avif|gif|mp4|mov|m4v)$/i.test(
+          item.name,
+        ) &&
         !paths.has(item.name)
       )
         item.delete();
@@ -113,7 +124,7 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
     // Cleanup can retry on the next open without hiding committed diary entries.
   }
   const rows = await db.getAllAsync<EntryRow>(
-    `SELECT e.id, e.diary_date, e.caption, e.source, m.kind, m.path, m.duration_ms
+    `SELECT e.id, e.diary_date, e.caption, e.source, e.frame_y, m.kind, m.path, m.duration_ms
      FROM entries e JOIN media m ON m.id = e.media_id
      WHERE e.owner_id = ? AND e.deleted_at IS NULL
      ORDER BY e.diary_date`,
@@ -125,6 +136,7 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
     source: row.source,
     uri: mediaUri(ownerId, row.path),
     caption: row.caption,
+    frame: row.frame_y,
     duration: row.duration_ms == null ? undefined : row.duration_ms / 1000,
   }));
 }
@@ -134,8 +146,20 @@ export async function saveMomentLocally(
   moment: Moment,
 ): Promise<Moment> {
   if (!moment.uri) throw new Error("Choose a photo or video before saving.");
-  if (moment.kind === "video" && (moment.duration ?? 0) > 60)
-    throw new Error("Videos must be 60 seconds or shorter.");
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(moment.date) ||
+    moment.date > diaryDate(new Date())
+  )
+    throw new Error("Choose today or an earlier date.");
+  if (moment.source === "camera" && moment.date !== diaryDate(new Date()))
+    throw new Error("Choose a moment from your library for a past date.");
+  const sourceFile = new File(moment.uri);
+  const issue = mediaLimitIssue(
+    moment.kind,
+    moment.duration,
+    sourceFile.size ?? undefined,
+  );
+  if (issue) throw new Error(mediaLimitMessage(issue));
 
   const db = await database;
   const current = await db.getFirstAsync<{ path: string }>(
@@ -152,10 +176,24 @@ export async function saveMomentLocally(
       directory,
       `${randomUUID()}.${fileExtension(moment.uri, moment.kind)}`,
     );
-    await new File(moment.uri).copy(storedFile);
+    try {
+      await sourceFile.copy(storedFile);
+    } catch (error) {
+      if (storedFile.exists) storedFile.delete();
+      throw error;
+    }
     if (!storedFile.exists || !storedFile.size) {
       if (storedFile.exists) storedFile.delete();
       throw new Error("The selected file could not be saved.");
+    }
+    const storedIssue = mediaLimitIssue(
+      moment.kind,
+      moment.duration,
+      storedFile.size,
+    );
+    if (storedIssue) {
+      storedFile.delete();
+      throw new Error(mediaLimitMessage(storedIssue));
     }
   }
 
@@ -193,11 +231,12 @@ export async function saveMomentLocally(
       const entryId = existing?.id ?? randomUUID();
       if (existing) {
         await tx.runAsync(
-          `UPDATE entries SET caption = ?, media_id = ?, source = ?, updated_at = ?, revision = revision + 1
+          `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, updated_at = ?, revision = revision + 1
            WHERE id = ? AND owner_id = ?`,
           moment.caption,
           mediaId,
           needsCopy ? (moment.source ?? "library") : existing.source,
+          moment.frame ?? "center",
           now,
           entryId,
           ownerId,
@@ -212,14 +251,15 @@ export async function saveMomentLocally(
         }
       } else {
         await tx.runAsync(
-          `INSERT INTO entries (id, owner_id, diary_date, caption, media_id, source, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO entries (id, owner_id, diary_date, caption, media_id, source, frame_y, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           entryId,
           ownerId,
           moment.date,
           moment.caption,
           mediaId,
           moment.source ?? "library",
+          moment.frame ?? "center",
           now,
           now,
         );

@@ -21,6 +21,7 @@ export type Moment = {
   sample?: number;
   caption: string;
   duration?: number;
+  frame?: "top" | "center" | "bottom";
 };
 
 type DiaryState = {

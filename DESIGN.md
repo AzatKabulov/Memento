@@ -15,6 +15,7 @@ Phone-size prototype captures: [welcome](design/prototype-welcome.png), [calenda
 - **App icon:** a simple pair of photo frames with a sun and horizon, in ivory on charcoal. It remains provisional until checked at launcher sizes on both phones.
 - **Motion:** short fades and subtle scale on hold preview. Tap always opens the full moment, so hold is optional. Respect reduced-motion settings when animation is added.
 - **Navigation:** the monthly calendar is the sole main view. Today is prominent, month navigation is close to the month title, and settings is secondary. Native back behavior must work on both systems.
+- **Camera:** a restrained retro-camera feel, with a clear viewfinder, warm ivory controls, a small recording light, and soft rounded surfaces. The live image remains unobstructed.
 - **Language:** intimate and plain. Empty states invite a memory without implying a missed day is a failure.
 
 ## Phase 2 screen map
