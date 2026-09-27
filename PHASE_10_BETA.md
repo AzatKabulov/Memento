@@ -6,7 +6,7 @@ The owner controls a [Supabase Free project](https://supabase.com/dashboard). It
 
 ## Entry gates
 
-1. Apply the private-diary migration to the owner-controlled Supabase Free project, configure auth redirects and providers, and supply the project URL and publishable key to both beta builds. Email sign-in exists in the app; Google and Apple sign-in still require implementation and credentials. Verify that captured and imported 60-second videos fit the 45 MiB file limit.
+1. Apply the private-diary migration to the owner-controlled Supabase Free project, configure email auth and redirects, and supply the project URL and publishable key to both beta builds. Email sign-in exists in the app; Google and Apple sign-in are deferred. Verify that captured and imported 60-second videos fit the 45 MiB file limit.
 2. Finish Phase 9 on physical Android and iPhone devices. Saving, editing, replacing, deleting, offline use, restart, video/audio, reminders, export/import, two-account isolation, and fresh-device cloud restore must pass. Resolve known data-loss or cross-account defects before inviting testers.
 3. Implement and verify account deletion and a database **plus media** recovery procedure. Restore a disposable mixed-media diary into a test environment; the cloud sync copy alone is not a recovery plan.
 4. Confirm the owner controls the Expo, Apple Developer/App Store Connect, and Google Play Console accounts, signing credentials, support contact, and tester list. Record the exact build numbers and backend environment used for testing.

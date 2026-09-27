@@ -8,7 +8,7 @@ Prepared: 26 September 2026. Platform and store requirements must be checked aga
 
 ## 1. The result we are building
 
-A cozy, private diary for iPhone and Android. Each calendar date can contain one photograph or a video up to 60 seconds with an optional caption. Users create an account through Google, Apple, or email, then capture new moments, import old ones, explore their calendar, and recover or export their memories.
+A cozy, private diary for iPhone and Android. Each calendar date can contain one photograph or a video up to 60 seconds with an optional caption. Users create an email account, then capture new moments, import old ones, explore their calendar, and recover or export their memories.
 
 Volume 1 includes the entire personal experience: photos, videos, circular presentation, muted calendar playback, press-and-hold preview, editing, reminders, offline access, private cloud backup, recovery, and export.
 
@@ -22,7 +22,7 @@ Confirmed requirements come from PRODUCT.md. Account requirements and the 60-sec
 
 | Decision | Proposed starting point | When to settle it |
 |---|---|---|
-| Accounts — confirmed | Account required; Google, Apple, or email sign-in | Implement in Phases 3–4 |
+| Accounts — confirmed | Email-and-password account required; Google and Apple sign-in deferred | Verify in Phases 4 and 9 |
 | Video length — confirmed | Up to 60 seconds | Validate in Phases 3 and 5 |
 | Email method — decided | Email and password, with verification and password reset | Implement in Phase 4 |
 | Long imported videos | Let the user select a short segment; never silently discard the rest | Phase 3 technical prototype |
@@ -82,7 +82,7 @@ Deliverables: PHASE_1_SPEC.md, a decision list, user journeys, and testable acce
 
 Design the following screens and states:
 
-1. A short welcome, Google/Apple/email sign-in, and the first empty calendar.
+1. A short welcome, email sign-in, and the first empty calendar.
 2. The home calendar, with month browsing, a year overview, today's marker, and a clear Add moment action.
 3. Photo/video capture and library selection.
 4. The editor: media preview, framing, date, caption, and Save.
@@ -110,7 +110,7 @@ Work:
 - Configure package identifiers, environment separation, versioning, Git workflow, formatting, linting, type checks, and a basic automated build/check pipeline.
 - Set up development, test, and production configurations. Keep privileged backend credentials out of the app.
 - Install real development builds on both an iPhone and an Android phone.
-- Configure test backend authentication and Apple/Google application credentials, redirect handling, and email delivery. Prove a provider sign-in returns to the correct app build.
+- Configure test backend email authentication, redirect handling, and email delivery. Prove verification and reset links return to the correct app build.
 - Prototype photo/video capture, library imports, circular masking, overlapping hold previews, and audio transitions.
 - Prove video trimming, thumbnail creation, and compression/conversion on both platforms. Select a maintained compatible native dependency or a small native module where Expo's core APIs are insufficient.
 - Try representative HEIC photos, HEVC/H.264 videos, rotated media, large files, and cloud-library items.
@@ -130,10 +130,10 @@ Use separate local records for entries, media, preferences, and pending cloud op
 
 Work:
 
-- Implement required Google, Apple, and verified email sign-in, sign-out, and recovery. Use native provider flows where supported and a secure browser flow where needed, including Apple access from Android.
+- Implement verified email sign-in, sign-out, and password recovery on both platforms.
 - Persist sessions securely and restore the current user's local diary offline. First login, account recovery, and new cloud authorization require a connection.
-- Handle cancelled login, expired credentials, email-code retries, revoked access, and provider failures.
-- Keep one stable diary owner independent of the chosen provider. If linking another sign-in method is exposed, require proof of control; do not merge accounts merely because their displayed email addresses match. Cover Apple's hidden email addresses and duplicate-account recovery. [Supabase mobile authentication](https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth), [identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking).
+- Handle cancelled login, expired credentials, email-code retries, and revoked access.
+- Keep one stable diary owner ID even if other sign-in methods are considered in a later release. Do not merge accounts merely because their displayed email addresses match.
 - Store files in persistent app storage, not only temporary/cache locations or gallery references.
 - Save files and metadata through a recoverable process so an interrupted write does not produce a broken entry.
 - Add database migrations so updates preserve existing diaries.
@@ -144,7 +144,7 @@ Work:
 
 Deliverables: sign-in/account flows, offline diary storage, and focused tests for account isolation, dates, unique entries, migrations, and interrupted saves.
 
-**Complete when:** Google, Apple, and email sign-in work on the supported platforms, and a previously signed-in user can create/edit moments offline, restart the app, and recover the same diary without missing files or changed dates.
+**Complete when:** Email sign-in and recovery work on both platforms, and a previously signed-in user can create/edit moments offline, restart the app, and recover the same diary without missing files or changed dates.
 
 ## Phase 5 — Build capture and the moment editor
 
@@ -203,7 +203,7 @@ Work:
 - Restore entries, captions, thumbnails, and original saved media on a second device, with progress and an offline-download path.
 - Use revision checks and deletion markers so old devices cannot silently restore deleted entries or overwrite newer moments. Preserve both conflicting versions until the user resolves a same-date conflict.
 - On logout or account change, isolate local content and queued work. Explain whether the local copy is retained or removed; never upload a previous user's diary into another account.
-- Implement account deletion across authentication, entry data, media, and the defined backup retention process. Include required Sign in with Apple token revocation through the server-side deletion flow. [Apple account deletion guidance](https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple).
+- Implement account deletion across authentication, entry data, media, and the defined backup retention process. See [account-feature implementation plan](ACCOUNT_FEATURES.md).
 
 Define the recovery promise separately from sync: sync copies current state; recovery needs retained backups or explicit export. Set a recovery window, backup schedule, deletion retention, and restore procedure. Back up both records and media objects: Supabase database backups alone do not include stored photographs/videos. [Supabase backup coverage](https://supabase.com/docs/guides/platform/backups).
 
@@ -241,7 +241,7 @@ Test incrementally during each phase; this phase checks the assembled product.
 | Area | Required verification |
 |---|---|
 | Daily flow | First run, capture/import, save, reopen, edit, replace, delete, and backfill |
-| Accounts | Google/Apple/email login on both platforms, cancelled login, expired codes, hidden email, recovery, revoked credentials, and account isolation |
+| Accounts | Email sign-up/sign-in on both platforms, cancelled login, expired links, password recovery, revoked credentials, and account isolation |
 | Dates | Month/year boundaries, leap day, midnight, travel, daylight-saving changes, and duplicate dates |
 | Persistence | Restart during saving, full disk, failed migration, deleted gallery original, and cancelled import |
 | Media | Portrait/landscape, supported formats/codecs, silent video, audio interruptions, long imports, and cloud-library assets |
@@ -348,7 +348,7 @@ Estimate ongoing media cost from measured average saved photo/video size × entr
 
 ## Volume 1 release checklist
 
-- [ ] Required account creation with Google, Apple, or email, plus recovery and deletion.
+- [ ] Required email account creation, verification, recovery, and deletion.
 - [ ] One photo or video up to 60 seconds per date, with an optional caption.
 - [ ] Capture, import, framing, trimming, and replacement work on both platforms.
 - [ ] Past entries can be added and edited; time-zone changes do not move diary dates.

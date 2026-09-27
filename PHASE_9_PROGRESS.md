@@ -13,7 +13,7 @@ Phase 9 is in progress. This is an assembled-app verification pass, not a releas
 ## Required before Phase 9 can pass
 
 - Run the complete daily flow on a physical Android phone and iPhone, including camera, microphone, 60-second video, gallery import, replacement, deletion, and app restart.
-- Configure a real Supabase project and provider credentials, then test email, Google, and Apple account flows, offline diary persistence, two-account isolation, cloud restore on a second device, interrupted uploads, and conflict resolution.
+- Verify the owner-created Supabase project and email delivery, then test email account flows, offline diary persistence, two-account isolation, cloud restore on a second device, interrupted uploads, and conflict resolution. Google and Apple sign-in are deferred.
 - Restore an exported mixed-media archive on both platforms; check reminders across permissions and time-zone changes.
 - Test VoiceOver and TalkBack, 150% and larger text, reduced motion, contrast, and the non-hold path to every memory.
 - Measure startup, save, calendar scrolling, memory, and video preview behavior with 365 and 1,825 entries on named devices. No performance limit has been established from emulator results.

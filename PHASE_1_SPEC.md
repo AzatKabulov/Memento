@@ -8,9 +8,9 @@ Memento is a private visual diary for iPhone and Android. A person saves one pho
 
 ## First-release scope
 
-Included: required accounts, daily photo or video moments, optional captions, calendar and year browsing, focused memory viewing, silent video previews, press-and-hold expansion, editing, gentle reminders, offline access after sign-in, private cloud backup and restoration, export, and account deletion.
+Included: required email accounts, daily photo or video moments, optional captions, calendar and year browsing, focused memory viewing, silent video previews, press-and-hold expansion, editing, gentle reminders, offline access after sign-in, private cloud backup and restoration, export, and account deletion.
 
-Excluded from Volume 1: other people's calendars, public profiles, friends, per-date sharing, likes, comments, messaging, monthly collages, yearly recap videos, and anniversary memories. These are future product ideas, not implicit first-release requirements.
+Excluded from Volume 1: Google and Apple sign-in, other people's calendars, public profiles, friends, per-date sharing, likes, comments, messaging, monthly collages, yearly recap videos, and anniversary memories. These are future product ideas, not implicit first-release requirements.
 
 ## Decisions
 
@@ -18,7 +18,7 @@ Excluded from Volume 1: other people's calendars, public profiles, friends, per-
 |---|---|---|
 | Product name | Confirmed | Memento |
 | Platforms | Confirmed | iPhone and Android mobile applications |
-| Access | Confirmed | Account required; Google, Apple, or email |
+| Access | Confirmed | Email-and-password account required; Google and Apple sign-in deferred |
 | Daily media | Confirmed | One photo or one video per date |
 | Video length | Confirmed | Maximum 60 seconds |
 | Privacy | Confirmed | Personal diary; all entries private in Volume 1 |
@@ -49,11 +49,11 @@ Visual details such as precise colors, fonts, transitions, and final navigation 
 
 ### A. First use and account
 
-The person opens Memento, sees a short explanation, and signs up or signs in using Google, Apple, or email and password. Email registration requires verification and offers password reset. After authentication, the empty calendar is available and adding a first moment is obvious. Returning users open directly to their diary while their session is valid. If they have already signed in on this device, their local diary remains available when offline.
+The person opens Memento, sees a short explanation, and signs up or signs in using email and password. Registration requires verification and offers password reset. After authentication, the empty calendar is available and adding a first moment is obvious. Returning users open directly to their diary while their session is valid. If they have already signed in on this device, their local diary remains available when offline.
 
 Acceptance checks:
 
-- Each offered sign-in method can create/access an account on its supported platform.
+- Email sign-up, verification, sign-in, and password reset work on both platforms.
 - Cancelling sign-in leaves the diary locked and offers a clear retry.
 - Incorrect email/password credentials, unverified email, and expired reset links explain what happened without exposing private data.
 - Sign-out and account switching never display another person's local moments.
@@ -154,7 +154,7 @@ The user should understand whether an action has saved locally or backed up. The
 
 ## User stories
 
-- As a new user, I can create an account using Google, Apple, or email so my diary has a recoverable owner.
+- As a new user, I can create an email account so my diary has a recoverable owner.
 - As a returning user, I can open my previously saved moments while offline.
 - As a user, I can capture today's moment quickly or import one from my gallery.
 - As a user who missed a day, I can choose a gallery photo or video for that past date.

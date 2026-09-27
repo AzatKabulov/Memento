@@ -12,6 +12,8 @@ The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction
 
 [Phase 12 maintenance preparation](PHASE_12_OPERATIONS.md) sets the post-launch operating routine, while the separate [Volume 2 concept](VOLUME_2_SPEC.md) defines optional shared calendars. Both are planning documents; Volume 1 remains private.
 
+[Account-feature plan](ACCOUNT_FEATURES.md) records the email-only decision and the remaining deletion work.
+
 ## Run the prototype
 
 Use Node.js 22.13 or newer. From `mobile/`:
@@ -23,7 +25,7 @@ npm start
 
 Open it in Expo Go or a development build on a supported phone, or run `npm run web` for layout review. Without account configuration, this is a sample-memory preview and new moments disappear when the app restarts. Phase 4 adds native email accounts and account-scoped local storage; [Phase 4 progress](PHASE_4_PROGRESS.md) records what still needs backend and device verification. [Phase 5 progress](PHASE_5_PROGRESS.md) tracks capture and editing work. Phase 7 adds native backup code that needs a configured Supabase project and device verification. Phase 8 adds native reminder and archive flows that still need device tests.
 
-To connect a Supabase project, copy `mobile/.env.example` to `mobile/.env` and set its project URL and publishable key. Never put a service-role key in the app. Configure email confirmation and allow the `memento://auth/callback` and `memento://auth/reset` redirect URLs in Supabase. Google and Apple providers still need credentials and native testing.
+To connect a Supabase project, copy `mobile/.env.example` to `mobile/.env` and set its project URL and publishable key. Never put a service-role key in the app. Configure email confirmation and allow the `memento://auth/callback` and `memento://auth/reset` redirect URLs in Supabase. Volume 1 uses email sign-in only.
 
 ```sh
 npm run typecheck

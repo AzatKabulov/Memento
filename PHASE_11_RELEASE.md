@@ -14,13 +14,13 @@
 
 > Memento gives each day a place to live. Save one photo or a short video, add a few words if you like, and revisit your life through a visual calendar. Open a date to see the moment up close. Missed a day? Add a photo or video from your library later. Gentle reminders are optional, and there are no streaks, likes, or public profiles in Volume 1.
 
-Review this copy against the final build. Do not claim working cloud recovery, Google/Apple sign-in, or account deletion until those paths pass device and backend tests. Use real app screenshots made with disposable diary content: populated calendar, camera/video capture, focused moment, and backup/settings. Do not publish screenshots containing a tester's private moments.
+Review this copy against the final build. Do not claim working cloud recovery or account deletion until those paths pass device and backend tests. Use real app screenshots made with disposable diary content: populated calendar, camera/video capture, focused moment, and backup/settings. Do not publish screenshots containing a tester's private moments.
 
 ## Data-handling inventory for disclosure review
 
 | Data | Current implementation | Release check |
 | --- | --- | --- |
-| Account email and authentication | Supabase Auth; email/password flow exists. Google/Apple are still planned. | Confirm providers, confirmation email delivery, reset, token handling, and deletion. |
+| Account email and authentication | Supabase Auth; email/password flow exists. Google/Apple sign-in are deferred. | Confirm email delivery, reset, token handling, and deletion. |
 | Photos, videos, captions, dates | Stored in app-private local storage; cloud sync code targets a private Supabase Storage bucket and owner-scoped database rows. | Verify migration, RLS, upload/download, restore, retention, and complete deletion on two accounts. |
 | Reminders | Local notification setting and schedule. | Confirm platform permission prompts and behavior on real phones. |
 | Archive exports | User-initiated portable archive shared through the phone's share sheet. | Verify what leaves the app and warn that anyone with an exported archive can read it. |
@@ -32,9 +32,9 @@ This inventory is a review worksheet, **not** a published privacy policy or a co
 ## Release gates
 
 - [ ] Confirm Supabase redirect URLs and apply/verify `supabase/migrations/202609270001_private_diary.sql` in the owner project. Test email sign-up, confirmation, reset, private media, and two-account isolation.
-- [ ] Implement Google and Apple sign-in if they remain promised Volume 1 providers; test both on devices. The current app implements email only.
+- [ ] Verify email-only sign-up, verification, password reset, session restoration, and sign-out on both devices.
 - [ ] Finish Phase 9 physical Android/iPhone testing and Phase 10 owner/invited beta. Record build numbers and backend environment; resolve data-loss and privacy blockers.
-- [ ] Implement secure account deletion in the app and a public web request path. The server must remove private media, diary rows, Auth identity, and any retained copies according to a disclosed retention rule. Revoke Apple sign-in tokens when applicable. Test interrupted and repeated requests. Do not expose an untested deletion control. [Apple account deletion](https://developer.apple.com/support/offering-account-deletion-in-your-app), [Google Play account deletion](https://support.google.com/googleplay/android-developer/answer/13327111?hl=en).
+- [ ] Implement secure account deletion in the app and a public web request path. The server must remove private media, diary rows, Auth identity, and retained copies according to a disclosed retention rule. Test interrupted and repeated requests. Do not expose an untested deletion control. See [account-feature plan](ACCOUNT_FEATURES.md). [Apple account deletion](https://developer.apple.com/support/offering-account-deletion-in-your-app), [Google Play account deletion](https://support.google.com/googleplay/android-developer/answer/13327111?hl=en).
 - [ ] Test a **database plus Storage** recovery drill. Supabase database backups do not cover Storage objects; see `supabase/OPERATIONS.md`.
 - [ ] Verify account ownership for Expo, Apple Developer/App Store Connect, and Google Play Console; check current submission and testing requirements in those accounts. Paid store memberships are separate from the Supabase Free project. [Expo store build guide](https://docs.expo.dev/deploy/build-project/).
 - [ ] Decide support email, public privacy-policy URL, deletion-request URL, operator identity, retention period, and supported regions. Publish accurate pages before entering store forms.

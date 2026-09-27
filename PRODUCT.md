@@ -26,7 +26,7 @@ Capture in the app for today or import from the phone's gallery for today or a p
 
 ## Capabilities and Constraints
 
-- An account is required. Support Google, Apple, and email-and-password sign-in, with email verification and password reset.
+- An account is required. Volume 1 uses email-and-password sign-in with email verification and password reset. Google and Apple sign-in are deferred.
 - One photo or video up to 60 seconds per day, with an optional caption.
 - Calendar video previews play silently while browsing. Opening a date enables its video's audio.
 - Press and hold gently expands a memory for preview, inspired by iPhone Photos.
