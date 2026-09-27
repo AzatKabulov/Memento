@@ -1,6 +1,6 @@
 # Memento — Volume 1 build plan
 
-Status: Phase 1 product specification complete. Phase 2 design and Phase 3 native validation remain in progress. Phase 4 account and offline-storage work has begun. Phase 5 capture and editor work has begun; see PHASE_5_PROGRESS.md. Phase 6 calendar and viewer work is implemented in the prototype, with native validation pending; see PHASE_6_PROGRESS.md. Phase 7 private backup work is underway; see PHASE_7_PROGRESS.md. Phase 8 reminders, settings, and archive work is underway; see PHASE_8_PROGRESS.md. Phase 9 verification is underway; see PHASE_9_PROGRESS.md. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
+Status: Phase 1 product specification complete. Phase 2 design and Phase 3 native validation remain in progress. Phase 4 account and offline-storage work has begun. Phase 5 capture and editor work has begun; see PHASE_5_PROGRESS.md. Phase 6 calendar and viewer work is implemented in the prototype, with native validation pending; see PHASE_6_PROGRESS.md. Phase 7 private backup work is underway; see PHASE_7_PROGRESS.md. Phase 8 reminders, settings, and archive work is underway; see PHASE_8_PROGRESS.md. Phase 9 verification is underway; see PHASE_9_PROGRESS.md. Phase 10 beta preparation is in PHASE_10_BETA.md; the beta has not started. The Phase 1 behavior brief is PHASE_1_SPEC.md; visual decisions are in DESIGN.md.
 
 The current implementation and unverified native work are recorded in [Phase 2–3 progress](PHASE_2_3_PROGRESS.md).
 
@@ -362,4 +362,4 @@ Estimate ongoing media cost from measured average saved photo/video size × entr
 - [ ] Production builds, store requirements, and operating recovery procedures are ready.
 - [ ] Social features remain a separately planned Volume 2, with existing entries private.
 
-Current next step: continue Phase 9 emulator checks and complete the account configuration and physical-device verification still open from earlier phases.
+Current next step: establish the Supabase project, finish account and recovery prerequisites, and complete Phase 9 on physical Android and iPhone devices before starting the Phase 10 beta.

@@ -1,0 +1,51 @@
+name: Beta defect
+description: Record a sanitized Memento beta issue for triage.
+title: "[Beta] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Do not attach personal photos or videos, diary captions, account credentials,
+        access tokens, or signed media links. Summarize private details instead.
+  - type: input
+    id: build
+    attributes:
+      label: App build
+      placeholder: "0.1.0 (build 3)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and OS
+      placeholder: "Pixel 7, Android 16 / iPhone 15, iOS 19"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open a saved day\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - "Release blocker: data loss, privacy breach, failed restore, or repeatable save crash"
+        - "Major: core flow broken with a workaround"
+        - "Minor: visual or usability issue"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include frequency, connectivity, time zone, and whether the moment survived restart or restore when relevant.

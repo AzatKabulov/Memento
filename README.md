@@ -6,6 +6,8 @@ The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction
 
 [Phase 9 progress](PHASE_9_PROGRESS.md) records emulator smoke tests, reliability fixes, and the physical-device and backend checks still needed for release.
 
+[Phase 10 beta preparation](PHASE_10_BETA.md) defines the entry gates, owner pilot, tester protocol, and feedback triage. No real-use beta has started.
+
 ## Run the prototype
 
 Use Node.js 22.13 or newer. From `mobile/`:

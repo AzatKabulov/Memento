@@ -5,6 +5,9 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "beta": {
+      "distribution": "store"
     }
   }
 }
