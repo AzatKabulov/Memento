@@ -10,6 +10,8 @@ The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction
 
 [Phase 11 release preparation](PHASE_11_RELEASE.md) contains draft store copy, a data-handling inventory, and the remaining release gates. No store release has been submitted.
 
+[Phase 12 maintenance preparation](PHASE_12_OPERATIONS.md) sets the post-launch operating routine, while the separate [Volume 2 concept](VOLUME_2_SPEC.md) defines optional shared calendars. Both are planning documents; Volume 1 remains private.
+
 ## Run the prototype
 
 Use Node.js 22.13 or newer. From `mobile/`:

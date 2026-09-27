@@ -362,4 +362,4 @@ Estimate ongoing media cost from measured average saved photo/video size × entr
 - [ ] Production builds, store requirements, and operating recovery procedures are ready.
 - [ ] Social features remain a separately planned Volume 2, with existing entries private.
 
-Current next step: establish the Supabase project, finish account and recovery prerequisites, and complete Phase 9 on physical Android and iPhone devices before starting the Phase 10 beta.
+Current next step: confirm the migration and auth redirects in the owner-created Supabase project, finish account and recovery prerequisites, and complete Phase 9 on physical Android and iPhone devices before starting the Phase 10 beta. Phases 11 and 12 have preparation documents but remain uncompleted.
