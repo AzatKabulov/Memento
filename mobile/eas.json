@@ -8,6 +8,9 @@
     },
     "beta": {
       "distribution": "store"
+    },
+    "production": {
+      "distribution": "store"
     }
   }
 }

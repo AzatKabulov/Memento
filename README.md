@@ -8,6 +8,8 @@ The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction
 
 [Phase 10 beta preparation](PHASE_10_BETA.md) defines the entry gates, owner pilot, tester protocol, and feedback triage. No real-use beta has started.
 
+[Phase 11 release preparation](PHASE_11_RELEASE.md) contains draft store copy, a data-handling inventory, and the remaining release gates. No store release has been submitted.
+
 ## Run the prototype
 
 Use Node.js 22.13 or newer. From `mobile/`:
