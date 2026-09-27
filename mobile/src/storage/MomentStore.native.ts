@@ -3,7 +3,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as SQLite from "expo-sqlite";
 import type { Moment } from "../state/DiaryContext";
 import { mediaLimitIssue, mediaLimitMessage } from "../lib/mediaRules";
-import { diaryDate } from "../lib/dates";
+import { diaryDate, isValidDiaryDate } from "../lib/dates";
 
 type EntryRow = {
   id: string;
@@ -126,27 +126,6 @@ export class MomentAlreadyExistsError extends Error {}
 
 export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
   const db = await database;
-  const referenced = await db.getAllAsync<{ path: string }>(
-    "SELECT path FROM media WHERE owner_id = ?",
-    ownerId,
-  );
-  const paths = new Set(
-    referenced.map((row) => new File(mediaUri(ownerId, row.path)).name),
-  );
-  try {
-    for (const item of ownerDirectory(ownerId).list()) {
-      if (
-        item instanceof File &&
-        /^[0-9a-f-]{36}\.(jpe?g|png|heic|heif|webp|avif|gif|mp4|mov|m4v)$/i.test(
-          item.name,
-        ) &&
-        !paths.has(item.name)
-      )
-        item.delete();
-    }
-  } catch {
-    // Cleanup can retry on the next open without hiding committed diary entries.
-  }
   const rows = await db.getAllAsync<EntryRow>(
     `SELECT e.id, e.diary_date, e.caption, e.source, e.frame_y, m.kind, m.path, m.duration_ms
      FROM entries e JOIN media m ON m.id = e.media_id
@@ -181,10 +160,7 @@ export async function saveMomentLocally(
   requireEmpty = false,
 ): Promise<Moment> {
   if (!moment.uri) throw new Error("Choose a photo or video before saving.");
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(moment.date) ||
-    moment.date > diaryDate(new Date())
-  )
+  if (!isValidDiaryDate(moment.date) || moment.date > diaryDate(new Date()))
     throw new Error("Choose today or an earlier date.");
   if (moment.source === "camera" && moment.date !== diaryDate(new Date()))
     throw new Error("Choose a moment from your library for a past date.");

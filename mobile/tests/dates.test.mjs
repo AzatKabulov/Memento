@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calendarCells, diaryDate, shiftDate } from "../src/lib/dates.ts";
+import {
+  calendarCells,
+  diaryDate,
+  isValidDiaryDate,
+  shiftDate,
+} from "../src/lib/dates.ts";
 
 test("February in a leap year includes the 29th and complete weeks", () => {
   const cells = calendarCells(2024, 1);
@@ -19,4 +24,12 @@ test("Sunday-start and Monday-start months align to Monday-first headings", () =
   assert.equal(monday[0], "2026-06-01");
   assert.equal(monday.length, 35);
   assert.equal(diaryDate(new Date(2026, 5, 1)), monday[0]);
+});
+
+test("diary dates reject impossible days without normalizing them", () => {
+  assert.equal(isValidDiaryDate("2024-02-29"), true);
+  assert.equal(isValidDiaryDate("2023-02-29"), false);
+  assert.equal(isValidDiaryDate("2026-04-31"), false);
+  assert.equal(isValidDiaryDate("2026-13-01"), false);
+  assert.equal(isValidDiaryDate("2026-09-27"), true);
 });

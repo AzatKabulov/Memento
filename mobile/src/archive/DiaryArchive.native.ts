@@ -1,7 +1,7 @@
 import { randomUUID } from "expo-crypto";
 import { File, FileMode, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { diaryDate } from "../lib/dates";
+import { diaryDate, isValidDiaryDate } from "../lib/dates";
 import { mediaLimitIssue } from "../lib/mediaRules";
 import type { Moment } from "../state/DiaryContext";
 import {
@@ -219,10 +219,10 @@ export async function shareDiaryArchive(
 function validEntry(value: unknown): value is ArchiveEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<ArchiveEntry>;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "")) return false;
-  const [year, month, day] = entry.date!.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  if (diaryDate(date) !== entry.date || entry.date! > diaryDate(new Date()))
+  if (
+    !isValidDiaryDate(entry.date ?? "") ||
+    entry.date! > diaryDate(new Date())
+  )
     return false;
   if (entry.kind !== "photo" && entry.kind !== "video") return false;
   if (typeof entry.caption !== "string" || entry.caption.length > 500)

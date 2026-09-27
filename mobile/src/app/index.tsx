@@ -214,7 +214,7 @@ export default function CalendarScreen() {
           </View>
           <Text style={styles.eyebrow}>YOUR DAYS, ONE MOMENT AT A TIME</Text>
           <View style={styles.headingRow}>
-            <View>
+            <View style={styles.headingContent}>
               <Text style={styles.sectionKicker}>THE CALENDAR</Text>
               <TouchableOpacity
                 accessibilityRole="button"
@@ -565,7 +565,9 @@ function DateTile({
             ) : (
               <VideoPoster uri={moment.uri} size={size} visible={visible} />
             )}
-            <Text style={styles.tileNumberFilled}>{day}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.tileNumberFilled}>
+              {day}
+            </Text>
             {moment.kind === "video" && <Text style={styles.videoDot}>●</Text>}
           </>
         ) : (
@@ -628,6 +630,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
   },
+  headingContent: { flex: 1, minWidth: 0 },
   sectionKicker: {
     color: colors.olive,
     fontSize: 10,
@@ -642,6 +645,7 @@ const styles = StyleSheet.create({
   },
   down: { fontFamily: undefined, fontSize: 22, color: colors.muted },
   todayPill: {
+    flexShrink: 0,
     paddingHorizontal: 16,
     height: 48,
     borderRadius: 24,
@@ -673,7 +677,13 @@ const styles = StyleSheet.create({
   arrowText: { color: colors.ink, fontSize: 29, lineHeight: 30, marginTop: -4 },
   arrowDisabled: { opacity: 0.35 },
   disabledText: { opacity: 0.35 },
-  monthNote: { color: colors.muted, fontSize: 12 },
+  monthNote: {
+    color: colors.muted,
+    fontSize: 12,
+    flex: 1,
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -705,13 +715,13 @@ const styles = StyleSheet.create({
     color: colors.white,
     bottom: 3,
     left: 3,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     overflow: "hidden",
     backgroundColor: "rgba(20,15,14,0.56)",
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 22,
     fontSize: 11,
     fontWeight: "700",
   },
