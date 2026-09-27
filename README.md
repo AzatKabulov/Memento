@@ -25,3 +25,19 @@ npx expo-doctor
 ```
 
 Device validation is required before relying on camera, library import, video clipping, audio, or hold behavior. A web preview and successful JavaScript bundle do not replace iPhone and Android testing.
+
+## Test on a phone
+
+For a quick UI and camera check, install Expo Go on the phone, run `npm start` from `mobile/`, and scan the QR code while the phone and computer are on the same network. With no Supabase configuration this is a sample-memory preview; new moments disappear when the app restarts. Do not use it as a real diary.
+
+For an installable Android test APK, sign in to an Expo account, link this project to EAS Build, then run from `mobile/`:
+
+```sh
+npx eas-cli@latest login
+npx eas-cli@latest build:configure
+npx eas-cli@latest build --platform android --profile preview
+```
+
+The `preview` profile in `mobile/eas.json` produces an internally distributed APK. When the cloud build finishes, open its install link on the Android phone. The APK launches without a development server, but account sign-in and persistent memories require a configured Supabase project. Configure the Supabase environment for the EAS build before relying on those features.
+
+An APK cannot be installed on iPhone. Use the same EAS `preview` profile with `--platform ios` after registering the test iPhone and setting up Apple signing, or distribute a later iOS build through TestFlight. Internal iOS builds require an Apple Developer account and provisioning for the test device.
