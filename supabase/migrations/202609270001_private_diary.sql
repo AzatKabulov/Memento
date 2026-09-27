@@ -3,7 +3,7 @@
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
-  'memento-private', 'memento-private', false, 262144000,
+  'memento-private', 'memento-private', false, 47185920,
   array['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp',
         'image/avif', 'image/gif', 'video/mp4', 'video/quicktime', 'video/x-m4v']
 )
@@ -23,7 +23,7 @@ create table if not exists public.memento_moments (
   frame_y text check (frame_y in ('top', 'center', 'bottom')),
   duration_ms integer check (duration_ms is null or duration_ms between 0 and 60000),
   media_path text,
-  media_bytes bigint check (media_bytes is null or media_bytes between 1 and 262144000),
+  media_bytes bigint check (media_bytes is null or media_bytes between 1 and 47185920),
   deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (owner_id, diary_date),
@@ -78,7 +78,7 @@ begin
     if p_kind not in ('photo', 'video') or p_source not in ('camera', 'library')
        or p_frame_y not in ('top', 'center', 'bottom')
        or p_media_path is null or p_media_bytes is null or p_media_bytes < 1
-       or p_media_bytes > 262144000 or char_length(p_caption) > 500 then
+       or p_media_bytes > 47185920 or char_length(p_caption) > 500 then
       raise exception 'Invalid moment';
     end if;
     if left(p_media_path, length(v_owner::text) + 1) <> v_owner::text || '/'

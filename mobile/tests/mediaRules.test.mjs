@@ -17,6 +17,7 @@ test("the 60-second video boundary accepts 59 and 60, then rejects longer clips"
 });
 
 test("photo and video size limits are inclusive and empty files are rejected", () => {
+  assert.ok(MAX_VIDEO_BYTES < 50_000_000);
   assert.equal(mediaLimitIssue("photo", undefined, MAX_PHOTO_BYTES), null);
   assert.equal(
     mediaLimitIssue("photo", undefined, MAX_PHOTO_BYTES + 1),

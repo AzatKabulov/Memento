@@ -1,5 +1,5 @@
 export const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
-export const MAX_VIDEO_BYTES = 250 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 45 * 1024 * 1024;
 export const MAX_VIDEO_SECONDS = 60;
 
 export type MediaLimitIssue =
@@ -37,7 +37,7 @@ export function mediaLimitMessage(issue: MediaLimitIssue) {
     case "video-duration-unknown":
       return "Memento could not read this video’s length. Choose another video.";
     case "media-too-large":
-      return "Choose a photo under 25 MB or a video under 250 MB.";
+      return "Choose a photo up to 25 MB or a video up to 45 MB.";
     case "media-empty":
       return "This file is empty. Choose another photo or video.";
   }
