@@ -1,0 +1,9 @@
+gradle.beforeProject { project ->
+  if (project.path != ':app') return
+  project.pluginManager.withPlugin('com.android.application') {
+    def staging = System.getenv('MEMENTO_CMAKE_STAGE')
+    if (staging) {
+      project.extensions.getByName('android').externalNativeBuild.cmake.buildStagingDirectory = new File(staging)
+    }
+  }
+}
