@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { MomentMedia } from "../../components/MomentMedia";
 import { shareMoment } from "../../archive/DiaryArchive";
-import { momentLabel } from "../../lib/dates";
+import { dateFromDiary } from "../../lib/dates";
 import { colors, type } from "../../lib/theme";
 import { useDiary } from "../../state/DiaryContext";
 
@@ -109,26 +109,61 @@ function MomentView({ date }: { date: string }) {
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.back}
+          style={styles.backCircle}
           accessibilityRole="button"
-          onPress={() => router.back()}
+          accessibilityLabel="Back to calendar"
+          onPress={() => router.replace("/")}
         >
-          <Text style={styles.backText}>‹ Calendar</Text>
+          <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
+        <Text style={styles.headerLabel}>MOMENT</Text>
         <TouchableOpacity
           accessibilityRole="button"
+          accessibilityLabel="Moment options"
+          style={styles.moreCircle}
           onPress={() =>
-            router.push({ pathname: "/compose/[date]", params: { date } })
+            Alert.alert("Moment options", undefined, [
+              {
+                text: "Edit moment",
+                onPress: () =>
+                  router.push({
+                    pathname: "/compose/[date]",
+                    params: { date },
+                  }),
+              },
+              {
+                text: "Remove moment",
+                style: "destructive",
+                onPress: deleteMoment,
+              },
+              { text: "Cancel", style: "cancel" },
+            ])
           }
         >
-          <Text style={styles.edit}>Edit</Text>
+          <Text style={styles.moreIcon}>•••</Text>
         </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.eyebrow}>A MOMENT KEPT</Text>
-        <Text style={styles.date}>{momentLabel(date)}</Text>
+        <Text style={styles.date}>
+          {new Intl.DateTimeFormat("en", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }).format(dateFromDiary(date))}
+        </Text>
+        <Text style={styles.dateMeta}>
+          {new Intl.DateTimeFormat("en", { weekday: "long" }).format(
+            dateFromDiary(date),
+          )}
+        </Text>
         <View
-          style={[styles.mediaWrap, { width: mediaSize, height: mediaSize }]}
+          style={[
+            styles.mediaWrap,
+            {
+              width: mediaSize,
+              height: moment.kind === "photo" ? mediaSize * 1.18 : mediaSize,
+            },
+          ]}
           onTouchStart={(event) => {
             touchStart.current = event.nativeEvent.pageX;
           }}
@@ -148,7 +183,11 @@ function MomentView({ date }: { date: string }) {
               style={styles.photoFrame}
             >
               <View style={{ transform: [{ scale: zoomed ? 2 : 1 }] }}>
-                <MomentMedia moment={moment} size={mediaSize} />
+                <MomentMedia
+                  moment={moment}
+                  size={mediaSize}
+                  height={mediaSize * 1.18}
+                />
               </View>
             </Pressable>
           ) : (
@@ -187,10 +226,22 @@ function MomentView({ date }: { date: string }) {
             </TouchableOpacity>
           </View>
         )}
-        <View style={styles.captionWrap}>
-          <Text style={styles.caption}>
-            {moment.caption || "No words needed for this one."}
-          </Text>
+        {!!moment.caption && (
+          <Text style={styles.caption}>{moment.caption}</Text>
+        )}
+        <View style={styles.primaryActions}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({ pathname: "/compose/[date]", params: { date } })
+            }
+            style={styles.editMoment}
+          >
+            <Text style={styles.editMomentText}>✎ Edit moment</Text>
+          </TouchableOpacity>
+          <View style={styles.privatePill}>
+            <Text style={styles.privateText}>Private diary</Text>
+          </View>
         </View>
         <View style={styles.memoryNav}>
           <TouchableOpacity
@@ -249,34 +300,49 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   header: {
-    height: 60,
-    paddingHorizontal: 23,
+    height: 62,
+    paddingHorizontal: 22,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  backCircle: { width: 44, height: 44, justifyContent: "center" },
+  backIcon: { color: colors.ink, fontSize: 34, lineHeight: 38, marginTop: -4 },
+  headerLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    marginRight: "auto",
+    marginLeft: 2,
+  },
+  moreCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moreIcon: { color: colors.ink, fontSize: 15, marginTop: -7 },
   back: { minHeight: 44, justifyContent: "center" },
   backText: { color: colors.ink, fontSize: 15 },
-  edit: { color: colors.plum, fontSize: 15, fontWeight: "700" },
-  scroll: { paddingHorizontal: 26, paddingTop: 25, paddingBottom: 60 },
-  eyebrow: {
-    color: colors.olive,
-    fontSize: 10,
-    letterSpacing: 1.8,
-    fontWeight: "700",
-  },
+  scroll: { paddingHorizontal: 26, paddingTop: 16, paddingBottom: 60 },
   date: {
     fontFamily: type.display,
-    fontSize: 31,
+    fontSize: 30,
+    fontWeight: "700",
     color: colors.ink,
-    marginTop: 9,
   },
+  dateMeta: { color: colors.muted, fontSize: 13, marginTop: 5 },
   mediaWrap: {
     alignSelf: "center",
-    marginTop: 28,
-    borderRadius: 24,
+    marginTop: 24,
+    borderRadius: 30,
     overflow: "hidden",
-    shadowColor: "#45383F",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 13 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
@@ -310,23 +376,42 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   videoControlText: { color: colors.plum, fontSize: 12, fontWeight: "700" },
-  captionWrap: {
-    borderTopColor: colors.line,
-    borderTopWidth: 1,
-    marginTop: 34,
-    paddingTop: 22,
-  },
   caption: {
     color: colors.ink,
     fontFamily: type.display,
-    fontSize: 23,
-    lineHeight: 33,
+    fontSize: 22,
+    lineHeight: 32,
+    marginTop: 22,
+    marginBottom: 6,
   },
+  primaryActions: { flexDirection: "row", gap: 10, marginTop: 26 },
+  editMoment: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editMomentText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+  privatePill: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  privateText: { color: colors.muted, fontSize: 13 },
   memoryNav: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
-    marginTop: 28,
+    marginTop: 24,
   },
   memoryNavButton: {
     minHeight: 44,

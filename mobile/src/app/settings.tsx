@@ -17,10 +17,12 @@ import { ReminderTimePicker } from "../settings/ReminderTimePicker";
 import { useSettings } from "../settings/SettingsContext";
 
 function SettingLink({
+  icon,
   title,
   detail,
   onPress,
 }: {
+  icon: string;
   title: string;
   detail: string;
   onPress: () => void;
@@ -31,6 +33,9 @@ function SettingLink({
       onPress={onPress}
       style={styles.link}
     >
+      <View style={styles.iconCircle}>
+        <Text style={styles.iconText}>{icon}</Text>
+      </View>
       <View style={styles.linkCopy}>
         <Text style={styles.itemTitle}>{title}</Text>
         <Text style={styles.itemDetail}>{detail}</Text>
@@ -55,26 +60,33 @@ export default function Settings() {
 
   return (
     <SafeAreaView style={styles.page}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        onPress={() => router.back()}
-        style={styles.back}
-      >
-        <Text style={styles.backText}>‹ Calendar</Text>
-      </TouchableOpacity>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Your space</Text>
-        <Text style={styles.description}>
-          A few quiet choices for keeping and revisiting your memories.
-        </Text>
+        <View style={styles.topline}>
+          <Text style={styles.brand}>MEMENTO</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Back to calendar"
+            onPress={() => router.replace("/")}
+            style={styles.back}
+          >
+            <Text style={styles.backText}>×</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.description}>Keep your diary yours.</Text>
 
-        <Text style={styles.sectionTitle}>Everyday</Text>
+        <Text style={styles.sectionTitle}>DAILY RITUAL</Text>
         <View style={styles.group}>
           <View style={styles.row}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>◷</Text>
+            </View>
             <View style={styles.rowCopy}>
-              <Text style={styles.itemTitle}>Daily reminder</Text>
+              <Text style={styles.itemTitle}>Reminder</Text>
               <Text style={styles.itemDetail}>
-                A gentle invitation when today is still empty.
+                {settings.reminderEnabled
+                  ? `Every day at ${new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, settings.reminderHour, settings.reminderMinute))}`
+                  : "Off · turn on for a gentle nudge"}
               </Text>
             </View>
             <Switch
@@ -84,7 +96,7 @@ export default function Settings() {
               onValueChange={(value) =>
                 update(settings.setReminderEnabled(value))
               }
-              trackColor={{ true: colors.olive, false: colors.line }}
+              trackColor={{ true: "#528767", false: colors.line }}
             />
           </View>
           {settings.reminderEnabled && (
@@ -116,34 +128,20 @@ export default function Settings() {
           {!!settings.reminderError && (
             <Text style={styles.permissionText}>{settings.reminderError}</Text>
           )}
-          <View style={[styles.row, styles.rowDivider]}>
-            <View style={styles.rowCopy}>
-              <Text style={styles.itemTitle}>Calendar video previews</Text>
-              <Text style={styles.itemDetail}>
-                Play a few visible video dates quietly.
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel="Calendar video previews"
-              disabled={!settings.available || !settings.ready}
-              value={settings.autoplay}
-              onValueChange={(value) => update(settings.setAutoplay(value))}
-              trackColor={{ true: colors.olive, false: colors.line }}
-            />
-          </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Keeping your diary</Text>
+        <Text style={styles.sectionTitle}>YOUR DATA</Text>
         <View style={styles.group}>
           <SettingLink
-            title="Backup & restore"
-            detail="See your private cloud copy and sync status"
+            icon="☁"
+            title="Cloud backup"
+            detail="See backup and restore status"
             onPress={() => router.push("/backup")}
           />
-          <View style={styles.rowDivider} />
           <SettingLink
-            title="Export & import"
-            detail="Keep a portable copy of your memories"
+            icon="⇧"
+            title="Export diary"
+            detail="Take a portable copy of your memories"
             onPress={() => router.push("/archive")}
           />
           {settings.available && (
@@ -158,51 +156,75 @@ export default function Settings() {
           )}
         </View>
 
-        <Text style={styles.sectionTitle}>About Memento</Text>
+        {auth.configured && auth.ownerId && (
+          <>
+            <Text style={styles.sectionTitle}>ACCOUNT</Text>
+            <View style={styles.group}>
+              <SettingLink
+                icon="○"
+                title="Account"
+                detail={auth.email ?? "Email account"}
+                onPress={() =>
+                  Alert.alert("Account", auth.email ?? "Signed in with email", [
+                    {
+                      text: "Sign out",
+                      onPress: async () => {
+                        try {
+                          await auth.signOut();
+                          router.replace("/welcome");
+                        } catch {
+                          Alert.alert(
+                            "Could not sign out",
+                            "Please try again.",
+                          );
+                        }
+                      },
+                    },
+                    { text: "Cancel", style: "cancel" },
+                  ])
+                }
+              />
+            </View>
+          </>
+        )}
+
+        <Text style={styles.sectionTitle}>PREFERENCES</Text>
         <View style={styles.group}>
-          <View style={styles.staticRow}>
-            <Text style={styles.itemTitle}>Appearance</Text>
-            <Text style={styles.itemDetail}>
-              The diary currently uses its calm dark theme. A light theme is
-              still being prepared.
-            </Text>
+          <View style={styles.row}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>▶</Text>
+            </View>
+            <View style={styles.rowCopy}>
+              <Text style={styles.itemTitle}>Video previews</Text>
+              <Text style={styles.itemDetail}>
+                Play visible calendar videos quietly.
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Calendar video previews"
+              disabled={!settings.available || !settings.ready}
+              value={settings.autoplay}
+              onValueChange={(value) => update(settings.setAutoplay(value))}
+              trackColor={{ true: "#528767", false: colors.line }}
+            />
           </View>
-          <View style={styles.rowDivider} />
           <SettingLink
+            icon="?"
             title="Help & privacy"
             detail="How your diary and exports work"
             onPress={() => router.push("/help")}
           />
         </View>
 
-        {auth.configured && auth.ownerId && (
-          <>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={styles.signOut}
-              onPress={async () => {
-                try {
-                  await auth.signOut();
-                  router.replace("/welcome");
-                } catch {
-                  Alert.alert("Could not sign out", "Please try again.");
-                }
-              }}
-            >
-              <Text style={styles.signOutText}>Sign out</Text>
-            </TouchableOpacity>
-            <Text style={styles.signOutNote}>
-              Your local diary stays on this phone for this account.
-            </Text>
-          </>
-        )}
         {!settings.available && (
           <Text style={styles.signOutNote}>
             This browser preview uses sample memories. Device settings become
             available after sign-in in the mobile app.
           </Text>
         )}
-        <Text style={styles.version}>Memento · Volume 1 in progress</Text>
+        <Text style={styles.version}>
+          Memento never has a public profile, feed, likes, or streaks.
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -216,33 +238,76 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     alignSelf: "center",
   },
-  back: { minHeight: 54, paddingHorizontal: 24, justifyContent: "center" },
-  backText: { color: colors.ink, fontSize: 15 },
-  scroll: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 48 },
-  title: { color: colors.ink, fontFamily: type.display, fontSize: 36 },
+  topline: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  brand: {
+    color: colors.olive,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 2.1,
+  },
+  back: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
+  backText: { color: colors.ink, fontSize: 24, lineHeight: 27 },
+  scroll: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 48 },
+  title: {
+    color: colors.ink,
+    fontFamily: type.display,
+    fontSize: 38,
+    fontWeight: "700",
+    marginTop: 8,
+  },
   description: {
     color: colors.muted,
     fontSize: 14,
     lineHeight: 22,
-    marginTop: 10,
+    marginTop: 2,
   },
   sectionTitle: {
-    color: colors.ink,
-    fontFamily: type.display,
-    fontSize: 23,
-    marginTop: 35,
-    marginBottom: 13,
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    marginTop: 31,
+    marginBottom: 9,
+    marginLeft: 3,
   },
   group: {
-    backgroundColor: colors.card,
-    borderRadius: 25,
-    paddingHorizontal: 18,
-    overflow: "hidden",
+    gap: 9,
   },
-  row: { minHeight: 79, flexDirection: "row", alignItems: "center", gap: 14 },
+  row: {
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#2D2421",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconText: { color: colors.ink, fontSize: 19, fontWeight: "600" },
   rowCopy: { flex: 1, paddingVertical: 15 },
-  rowDivider: { borderTopWidth: 1, borderTopColor: colors.line },
-  itemTitle: { color: colors.ink, fontSize: 15, fontWeight: "600" },
+  itemTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   itemDetail: {
     color: colors.muted,
     fontSize: 12,
@@ -250,9 +315,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   timeRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    padding: 16,
   },
   permission: {
     minHeight: 48,
@@ -262,28 +329,25 @@ const styles = StyleSheet.create({
   },
   permissionText: { color: colors.olive, fontSize: 12, lineHeight: 18 },
   link: {
-    minHeight: 74,
+    minHeight: 78,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
   },
   linkCopy: { flex: 1, paddingVertical: 12 },
-  arrow: { color: colors.ink, fontSize: 27, marginLeft: 12 },
+  arrow: { color: colors.muted, fontSize: 27, marginLeft: 6 },
   usage: {
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    paddingVertical: 18,
-  },
-  staticRow: { minHeight: 75, justifyContent: "center", paddingVertical: 16 },
-  signOut: {
-    minHeight: 52,
-    borderRadius: 26,
+    padding: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
     backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 30,
   },
-  signOutText: { color: colors.ink, fontWeight: "700" },
   signOutNote: {
     color: colors.muted,
     fontSize: 11,
@@ -294,7 +358,7 @@ const styles = StyleSheet.create({
   version: {
     color: colors.muted,
     fontSize: 11,
-    textAlign: "center",
-    marginTop: 27,
+    marginTop: 29,
+    lineHeight: 16,
   },
 });

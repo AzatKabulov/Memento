@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { diaryDate } from "../lib/dates";
+import { dateFromDiary, diaryDate } from "../lib/dates";
 import { pickMedia, showPickMediaError } from "../lib/pickMedia";
 import { colors } from "../lib/theme";
 
@@ -27,6 +27,7 @@ export default function CameraScreen() {
   const [microphonePermission, requestMicrophone] = useMicrophonePermissions();
   const [mode, setMode] = useState<"picture" | "video">("picture");
   const [facing, setFacing] = useState<"front" | "back">("back");
+  const [torch, setTorch] = useState(false);
   const [recording, setRecording] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [focused, setFocused] = useState(true);
@@ -97,7 +98,7 @@ export default function CameraScreen() {
           The camera can only capture today’s moment.
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.replace("/")}
           style={styles.allow}
           accessibilityRole="button"
         >
@@ -140,7 +141,7 @@ export default function CameraScreen() {
             <Text style={styles.libraryText}>Choose from library</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/")}
             style={styles.permissionBack}
             accessibilityRole="button"
           >
@@ -224,326 +225,337 @@ export default function CameraScreen() {
   }
 
   return (
-    <View style={styles.page}>
-      {focused && (
-        <CameraView
-          key={`${mode}-${facing}`}
-          ref={camera}
-          style={styles.camera}
-          mode={mode}
-          facing={facing}
-          mute={false}
-          onCameraReady={() => setCameraReady(true)}
-          onMountError={() =>
-            Alert.alert(
-              "Camera unavailable",
-              "Try again or choose a moment from your library.",
-            )
-          }
-        />
-      )}
-      <View pointerEvents="none" style={styles.viewfinder}>
-        <View style={styles.viewfinderTop}>
-          <View style={styles.viewfinderMark} />
-          <Text style={styles.viewfinderText}>
-            {facing === "front" ? "FRONT LENS" : "BACK LENS"}
+    <SafeAreaView style={styles.page}>
+      <View style={styles.top}>
+        <TouchableOpacity
+          onPress={() => router.replace("/")}
+          style={styles.circleButton}
+          accessibilityRole="button"
+          accessibilityLabel="Back to calendar"
+        >
+          <Text style={styles.circleIcon}>‹</Text>
+        </TouchableOpacity>
+        <View style={styles.topIdentity}>
+          <Text style={styles.dateTitle}>
+            {new Intl.DateTimeFormat("en", {
+              month: "long",
+              day: "numeric",
+            }).format(dateFromDiary(date))}
           </Text>
-          <View style={styles.viewfinderMark} />
+          <Text style={styles.dateSubtitle}>Add today’s moment</Text>
+        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={torch ? "Turn off light" : "Turn on light"}
+          accessibilityState={{ selected: torch }}
+          disabled={recording || facing === "front"}
+          onPress={() => setTorch((value) => !value)}
+          style={[styles.circleButton, facing === "front" && styles.disabled]}
+        >
+          <Text style={styles.flashIcon}>ϟ</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.viewfinder}>
+        {focused && (
+          <CameraView
+            key={`${mode}-${facing}`}
+            ref={camera}
+            style={StyleSheet.absoluteFill}
+            mode={mode}
+            facing={facing}
+            enableTorch={torch && facing === "back"}
+            mute={false}
+            onCameraReady={() => setCameraReady(true)}
+            onMountError={() =>
+              Alert.alert(
+                "Camera unavailable",
+                "Try again or choose a moment from your library.",
+              )
+            }
+          />
+        )}
+        <View pointerEvents="none" style={styles.frameGuides}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>MEMENTO</Text>
+          </View>
+          <View style={styles.verticalOne} />
+          <View style={styles.verticalTwo} />
+          <View style={styles.horizontalOne} />
+          <View style={styles.horizontalTwo} />
+          <View style={styles.recordDot} />
         </View>
       </View>
-      <SafeAreaView style={styles.overlay}>
-        <View style={styles.top}>
+      <View style={styles.controls}>
+        <View style={styles.modes}>
           <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.close}
-            accessibilityRole="button"
-            accessibilityLabel="Close camera"
-          >
-            <Text style={styles.closeText}>×</Text>
-          </TouchableOpacity>
-          <View style={styles.topIdentity}>
-            <Text style={styles.brand}>Memento</Text>
-            <Text style={styles.topText}>TODAY’S MOMENT</Text>
-          </View>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Switch camera"
             disabled={recording}
             onPress={() => {
-              setCameraReady(false);
-              setFacing((current) => (current === "back" ? "front" : "back"));
-            }}
-            style={styles.flip}
-          >
-            <Text style={styles.flipText}>Flip</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.controls}>
-          <View style={styles.controlsHeader}>
-            <View style={styles.recordLamp} />
-            <Text style={styles.controlsHeading}>
-              {recording ? "RECORDING" : "READY TO KEEP"}
-            </Text>
-            <Text style={styles.frameCount}>
-              {mode === "video" ? "VIDEO" : "PHOTO"} · 01
-            </Text>
-          </View>
-          <View style={styles.modes}>
-            <TouchableOpacity
-              disabled={recording}
-              onPress={() => {
-                if (mode === "picture") return;
+              if (mode !== "picture") {
                 setCameraReady(false);
                 setMode("picture");
-              }}
+              }
+            }}
+            style={[
+              styles.modeButton,
+              mode === "picture" && styles.modeButtonSelected,
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mode === "picture" }}
+          >
+            <Text
               style={[
-                styles.modeButton,
-                mode === "picture" && styles.modeButtonSelected,
+                styles.modeText,
+                mode === "picture" && styles.modeSelected,
               ]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === "picture" }}
             >
-              <Text
-                style={[
-                  styles.modeText,
-                  mode === "picture" && styles.modeSelected,
-                ]}
-              >
-                PHOTO
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              disabled={recording}
-              onPress={() => {
-                if (mode === "video") return;
+              Photo
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            disabled={recording}
+            onPress={() => {
+              if (mode !== "video") {
                 setCameraReady(false);
                 setMode("video");
-              }}
-              style={[
-                styles.modeButton,
-                mode === "video" && styles.modeButtonSelected,
-              ]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === "video" }}
-            >
-              <Text
-                style={[
-                  styles.modeText,
-                  mode === "video" && styles.modeSelected,
-                ]}
-              >
-                VIDEO
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.shutterRow}>
-            <View style={styles.shutterSide} />
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={
-                recording
-                  ? "Stop recording"
-                  : mode === "video"
-                    ? "Record video"
-                    : "Take photo"
               }
-              disabled={!cameraReady && !recording}
-              onPress={
-                recording
-                  ? () => {
-                      if (!stopRequested.current) {
-                        stopRequested.current = true;
-                        camera.current?.stopRecording();
-                      }
-                    }
-                  : capture
-              }
-              style={[
-                styles.shutter,
-                recording && styles.shutterRecording,
-                !cameraReady && !recording && styles.shutterDisabled,
-              ]}
+            }}
+            style={[
+              styles.modeButton,
+              mode === "video" && styles.modeButtonSelected,
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mode === "video" }}
+          >
+            <Text
+              style={[styles.modeText, mode === "video" && styles.modeSelected]}
             >
-              <View
-                style={[styles.shutterInner, recording && styles.shutterStop]}
-              />
-            </TouchableOpacity>
-            <Text style={styles.shutterSide}>
-              {mode === "video" ? "60 SEC" : "1 SHOT"}
+              Video
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.shutterRow}>
+          <View style={styles.sideSpace}>
+            <Text style={styles.limit}>
+              {recording
+                ? `${elapsed}s / 60s`
+                : mode === "video"
+                  ? "60 SEC"
+                  : "1×"}
             </Text>
           </View>
-          <Text style={styles.limit}>
-            {recording
-              ? `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")} / 01:00 · tap to stop`
-              : mode === "video"
-                ? "Up to 60 seconds"
-                : "Tap to capture"}
-          </Text>
           <TouchableOpacity
             accessibilityRole="button"
-            disabled={recording}
-            style={styles.library}
-            onPress={chooseFromLibrary}
+            accessibilityLabel={
+              recording
+                ? "Stop recording"
+                : mode === "video"
+                  ? "Record video"
+                  : "Take photo"
+            }
+            disabled={!cameraReady && !recording}
+            onPress={
+              recording
+                ? () => {
+                    if (!stopRequested.current) {
+                      stopRequested.current = true;
+                      camera.current?.stopRecording();
+                    }
+                  }
+                : capture
+            }
+            style={[
+              styles.shutter,
+              recording && styles.shutterRecording,
+              !cameraReady && !recording && styles.disabled,
+            ]}
           >
-            <Text style={styles.libraryText}>Choose from library</Text>
+            <View
+              style={[styles.shutterInner, recording && styles.shutterStop]}
+            />
           </TouchableOpacity>
-          <Text style={styles.controlsFoot}>ONE DAY · ONE MOMENT</Text>
+          <View style={styles.sideSpace}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Switch camera"
+              disabled={recording}
+              onPress={() => {
+                setCameraReady(false);
+                setTorch(false);
+                setFacing((current) => (current === "back" ? "front" : "back"));
+              }}
+              style={styles.flip}
+            >
+              <Text style={styles.flipText}>↻</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </SafeAreaView>
-    </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          disabled={recording}
+          style={styles.library}
+          onPress={chooseFromLibrary}
+        >
+          <Text style={styles.libraryText}>▣ Choose from library</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#171717" },
-  camera: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFill, justifyContent: "space-between" },
+  page: {
+    flex: 1,
+    backgroundColor: colors.paper,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+  },
   viewfinder: {
-    position: "absolute",
-    top: 128,
-    bottom: 285,
-    left: 17,
-    right: 17,
+    flex: 1,
+    minHeight: 200,
+    marginHorizontal: 18,
+    marginTop: 20,
     borderWidth: 1,
-    borderColor: "rgba(245,231,206,0.62)",
-    borderRadius: 30,
-    justifyContent: "flex-start",
+    borderColor: colors.line,
+    borderRadius: 34,
+    overflow: "hidden",
+    backgroundColor: colors.card,
   },
-  viewfinderTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 16,
+  frameGuides: { ...StyleSheet.absoluteFill },
+  badge: {
+    position: "absolute",
+    top: 18,
+    left: 17,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: "rgba(20,15,12,0.65)",
   },
-  viewfinderMark: {
-    width: 13,
+  badgeText: {
+    color: colors.ink,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  verticalOne: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: "33.33%",
+    width: 1,
+    backgroundColor: "rgba(255,239,217,0.20)",
+  },
+  verticalTwo: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: "66.66%",
+    width: 1,
+    backgroundColor: "rgba(255,239,217,0.20)",
+  },
+  horizontalOne: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "33.33%",
     height: 1,
-    backgroundColor: "rgba(245,231,206,0.75)",
+    backgroundColor: "rgba(255,239,217,0.20)",
   },
-  viewfinderText: {
-    color: "#F5E7CE",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.4,
+  horizontalTwo: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "66.66%",
+    height: 1,
+    backgroundColor: "rgba(255,239,217,0.20)",
+  },
+  recordDot: {
+    position: "absolute",
+    top: 22,
+    right: 18,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.olive,
   },
   top: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 21,
-    paddingTop: 7,
+    paddingHorizontal: 18,
+    paddingTop: 8,
   },
-  close: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(30,27,24,0.66)",
+  circleButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
   },
-  closeText: { color: "#fff", fontSize: 31, marginTop: -4 },
-  flip: {
-    minWidth: 52,
-    minHeight: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(30,27,24,0.66)",
-    alignItems: "center",
-    justifyContent: "center",
+  circleIcon: {
+    color: colors.ink,
+    fontSize: 30,
+    lineHeight: 32,
+    marginTop: -4,
   },
-  flipText: { color: "#F5E7CE", fontSize: 13, fontWeight: "700" },
+  flashIcon: { color: colors.ink, fontSize: 27, lineHeight: 32 },
+  dateTitle: { color: colors.ink, fontSize: 17, fontWeight: "700" },
+  dateSubtitle: { color: colors.muted, fontSize: 12, marginTop: 3 },
+  disabled: { opacity: 0.45 },
   topIdentity: {
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: "rgba(30,27,24,0.60)",
-  },
-  brand: {
-    color: "#F5E7CE",
-    fontFamily: "Georgia",
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  topText: {
-    color: "#D5C4A9",
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 1.4,
+    flex: 1,
+    paddingHorizontal: 8,
   },
   controls: {
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 14,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: 32,
-    backgroundColor: "rgba(34,31,28,0.88)",
-    borderWidth: 1,
-    borderColor: "rgba(245,231,206,0.25)",
+    paddingHorizontal: 18,
+    paddingTop: 17,
+    paddingBottom: 12,
   },
-  controlsHeader: {
-    width: "100%",
+  modes: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    gap: 2,
+    marginBottom: 16,
+    padding: 4,
+    borderRadius: 24,
+    backgroundColor: colors.card,
   },
-  recordLamp: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#D8896B",
-  },
-  controlsHeading: {
-    color: "#F5E7CE",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.3,
-  },
-  frameCount: {
-    color: "#BEAD92",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.1,
-    marginLeft: "auto",
-  },
-  modes: { flexDirection: "row", gap: 10, marginTop: 20, marginBottom: 14 },
   modeButton: {
-    minWidth: 94,
-    minHeight: 40,
+    minWidth: 90,
+    minHeight: 34,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  modeButtonSelected: { backgroundColor: "rgba(245,231,206,0.16)" },
-  modeText: {
-    color: "#BEAD92",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1.2,
+  modeButtonSelected: {
+    backgroundColor: "#3D2F27",
+    borderWidth: 1,
+    borderColor: "#645043",
   },
-  modeSelected: { color: "#F5E7CE" },
+  modeText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  modeSelected: { color: colors.ink },
   shutterRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     width: "100%",
+    marginBottom: 18,
   },
-  shutterSide: {
-    width: 70,
-    color: "#BEAD92",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textAlign: "center",
-  },
+  sideSpace: { width: 72, alignItems: "center", justifyContent: "center" },
   shutter: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderColor: "#F5E7CE",
-    borderWidth: 3,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderColor: colors.muted,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -551,10 +563,9 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: "#F5E7CE",
+    backgroundColor: "#F7D7AB",
   },
   shutterRecording: { borderColor: "#D8896B" },
-  shutterDisabled: { opacity: 0.5 },
   shutterStop: {
     width: 25,
     height: 25,
@@ -562,29 +573,32 @@ const styles = StyleSheet.create({
     backgroundColor: "#D8896B",
   },
   limit: {
-    color: "#F5E7CE",
+    color: colors.ink,
     fontSize: 12,
-    marginTop: 10,
     fontVariant: ["tabular-nums"],
   },
-  library: {
-    minHeight: 45,
-    marginTop: 16,
-    paddingHorizontal: 22,
-    borderRadius: 22,
+  flip: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(245,231,206,0.4)",
-    backgroundColor: "rgba(245,231,206,0.09)",
+    borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
   },
-  libraryText: { color: "#F5E7CE", fontSize: 13, fontWeight: "700" },
-  controlsFoot: {
-    color: "#9F907C",
-    fontSize: 9,
-    letterSpacing: 2,
-    marginTop: 15,
+  flipText: { color: colors.ink, fontSize: 25, lineHeight: 29 },
+  library: {
+    minHeight: 50,
+    width: "100%",
+    paddingHorizontal: 22,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
   },
+  libraryText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
   permission: {
     flex: 1,
     justifyContent: "center",

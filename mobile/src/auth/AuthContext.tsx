@@ -13,6 +13,7 @@ type AuthState = {
   configured: boolean;
   loading: boolean;
   ownerId: string | null;
+  email: string | null;
   signInEmail: (email: string, password: string) => Promise<void>;
   signUpEmail: (email: string, password: string) => Promise<boolean>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -28,6 +29,7 @@ function requireClient() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(authConfigured);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(({ data }) => {
         if (active) {
           setOwnerId(data.session?.user.id ?? null);
+          setEmail(data.session?.user.email ?? null);
           setLoading(false);
         }
       })
@@ -48,7 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((_event, session) => {
-      if (active) setOwnerId(session?.user.id ?? null);
+      if (active) {
+        setOwnerId(session?.user.id ?? null);
+        setEmail(session?.user.email ?? null);
+      }
     });
     if (AppState.currentState === "active") client.auth.startAutoRefresh();
     const appStateSubscription = AppState.addEventListener(
@@ -71,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       configured: authConfigured,
       loading,
       ownerId,
+      email,
       signInEmail: async (email, password) => {
         const { error } = await requireClient().auth.signInWithPassword({
           email,
@@ -100,9 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error } = await requireClient().auth.signOut();
         if (error) throw error;
         setOwnerId(null);
+        setEmail(null);
       },
     }),
-    [loading, ownerId],
+    [loading, ownerId, email],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

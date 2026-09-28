@@ -1,14 +1,14 @@
 export const colors = {
-  paper: "#212121",
-  card: "#2D2C2B",
-  ink: "#F1EAE2",
-  muted: "#A8A29B",
-  line: "#44413E",
-  plum: "#F1EAE2",
-  blush: "#4A4542",
-  olive: "#BDAE9B",
+  paper: "#100D0C",
+  card: "#201A18",
+  ink: "#F6EDE0",
+  muted: "#A89A8D",
+  line: "#392F29",
+  plum: "#F6EDE0",
+  blush: "#49342B",
+  olive: "#D5A063",
   white: "#FFFFFF",
-  buttonInk: "#272525",
+  buttonInk: "#211916",
 };
 
 export const type = {

@@ -63,17 +63,16 @@ export default function CalendarScreen() {
   const blurTargetRef = useRef<View | null>(null);
   const { width } = useWindowDimensions();
   const viewportWidth = Math.min(width, 480) - (Platform.OS === "web" ? 16 : 0);
-  const tile = Math.floor((viewportWidth - 24 - 6 * 5) / 7);
+  const tile = Math.floor((viewportWidth - 36 - 6 * 5) / 7);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
   const cells = calendarCells(year, month);
-  const filled = cells.filter((date) => date && moments[date]).length;
   const visibleRows = new Set(
     cells
       .map((_, index) => Math.floor(index / 7))
       .filter((row) => {
         if (!scrollHeight) return true;
-        const top = gridY + row * (tile + 5);
+        const top = gridY + row * (tile + 36);
         return (
           top + tile >= scrollY - tile && top <= scrollY + scrollHeight + tile
         );
@@ -201,8 +200,7 @@ export default function CalendarScreen() {
           onMomentumScrollEnd={resumeAfterScroll}
         >
           <View style={styles.topline}>
-            <View style={{ width: 44 }} />
-            <Text style={styles.brand}>Memento</Text>
+            <Text style={styles.brand}>MEMENTO</Text>
             <TouchableOpacity
               accessibilityLabel="Settings"
               accessibilityRole="button"
@@ -212,71 +210,52 @@ export default function CalendarScreen() {
               <Text style={styles.settingsText}>•••</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.eyebrow}>YOUR DAYS, ONE MOMENT AT A TIME</Text>
           <View style={styles.headingRow}>
             <View style={styles.headingContent}>
-              <Text style={styles.sectionKicker}>THE CALENDAR</Text>
               <TouchableOpacity
                 accessibilityRole="button"
-                accessibilityLabel="Choose year"
+                accessibilityLabel="Choose month and year"
                 onPress={() => {
                   setSelectedYear(year);
                   setYearOpen(true);
                 }}
-                style={{ minHeight: 48, justifyContent: "center" }}
+                style={styles.monthPicker}
               >
-                <Text
-                  style={[
-                    styles.monthTitle,
-                    { fontSize: 25, letterSpacing: 2 },
-                  ]}
-                >
-                  {monthLabel(year, month).toUpperCase()}{" "}
-                  <Text style={styles.down}>⌄</Text>
+                <Text style={styles.monthTitle}>
+                  {new Intl.DateTimeFormat("en", { month: "long" }).format(
+                    visibleMonth,
+                  )}
                 </Text>
+                <Text style={styles.yearText}>{year}</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={styles.todayPill}
-              onPress={() =>
-                setVisibleMonth(
-                  new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-                )
-              }
-            >
-              <Text style={styles.todayText}>Today</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.monthNav}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Previous month"
-              onPress={() => changeMonth(-1)}
-              style={styles.arrow}
-            >
-              <Text style={styles.arrowText}>‹</Text>
-            </TouchableOpacity>
-            <Text style={styles.monthNote}>
-              {filled} {filled === 1 ? "moment" : "moments"} kept this month
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Next month"
-              disabled={
-                year === new Date().getFullYear() &&
-                month === new Date().getMonth()
-              }
-              onPress={() => changeMonth(1)}
-              style={[
-                styles.arrow,
-                year === new Date().getFullYear() &&
-                  month === new Date().getMonth() &&
-                  styles.arrowDisabled,
-              ]}
-            >
-              <Text style={styles.arrowText}>›</Text>
-            </TouchableOpacity>
+            <View style={styles.monthNav}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+                onPress={() => changeMonth(-1)}
+                style={styles.arrow}
+              >
+                <Text style={styles.arrowText}>‹</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+                disabled={
+                  year === new Date().getFullYear() &&
+                  month === new Date().getMonth()
+                }
+                onPress={() => changeMonth(1)}
+                style={[
+                  styles.arrow,
+                  year === new Date().getFullYear() &&
+                    month === new Date().getMonth() &&
+                    styles.arrowDisabled,
+                ]}
+              >
+                <Text style={styles.arrowText}>›</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.weekRow}>
             {weekdays.map((day, index) => (
@@ -320,17 +299,10 @@ export default function CalendarScreen() {
               ) : (
                 <View
                   key={`empty-${index}`}
-                  style={{ width: tile, height: tile + 5 }}
+                  style={{ width: tile, height: tile + 26 }}
                 />
               ),
             )}
-          </View>
-          <View style={styles.tip}>
-            <Text style={styles.tipTitle}>A little note</Text>
-            <Text style={styles.tipText}>
-              Some days have a photo. Some days are simply lived. Both belong
-              here.
-            </Text>
           </View>
         </ScrollView>
       </BlurTargetView>
@@ -343,13 +315,16 @@ export default function CalendarScreen() {
       >
         <TouchableOpacity
           accessibilityRole="button"
+          accessibilityLabel={
+            moments[today] ? "View today's moment" : "Capture today's moment"
+          }
           style={styles.addButton}
           onPress={() => openDate(today)}
         >
-          <Text style={[styles.plus, { color: colors.buttonInk }]}>＋</Text>
-          <Text style={[styles.addText, { color: colors.buttonInk }]}>
-            {moments[today] ? "View today’s moment" : "Capture today’s moment"}
-          </Text>
+          <View style={styles.cameraBody}>
+            <View style={styles.cameraTop} />
+            <View style={styles.cameraLens} />
+          </View>
         </TouchableOpacity>
       </BlurView>
       <Modal
@@ -370,18 +345,27 @@ export default function CalendarScreen() {
         >
           {preview && (
             <View style={styles.previewCard}>
-              <MomentMedia
-                moment={preview}
-                size={Math.min(width - 100, 280)}
-                focused={false}
-              />
               <Text style={styles.previewDate}>
-                {momentLabel(preview.date)}
+                {new Intl.DateTimeFormat("en", {
+                  month: "long",
+                  day: "numeric",
+                }).format(dateFromDiary(preview.date))}
               </Text>
+              <Text style={styles.previewMeta}>
+                {new Intl.DateTimeFormat("en", { weekday: "long" }).format(
+                  dateFromDiary(preview.date),
+                )}
+              </Text>
+              <View style={styles.previewMedia}>
+                <MomentMedia
+                  moment={preview}
+                  size={Math.min(width - 100, 280)}
+                  focused={false}
+                />
+              </View>
               <Text style={styles.previewCaption} numberOfLines={2}>
                 {preview.caption || "A moment kept."}
               </Text>
-              <Text style={styles.previewHint}>Tap the date to open</Text>
             </View>
           )}
         </Pressable>
@@ -537,13 +521,13 @@ function DateTile({
       onLongPress={moment ? onHold : undefined}
       onPressOut={onRelease}
       delayLongPress={300}
-      style={{ width: size, height: size + 5, alignItems: "center" }}
+      style={{ width: size, height: size + 26, alignItems: "center" }}
     >
       <View
         style={[
           styles.tile,
           { width: size, height: size },
-          date === today && styles.todayTile,
+          !moment && date === today && styles.todayTile,
         ]}
       >
         {moment ? (
@@ -565,10 +549,7 @@ function DateTile({
             ) : (
               <VideoPoster uri={moment.uri} size={size} visible={visible} />
             )}
-            <Text maxFontSizeMultiplier={1.2} style={styles.tileNumberFilled}>
-              {day}
-            </Text>
-            {moment.kind === "video" && <Text style={styles.videoDot}>●</Text>}
+            {moment.kind === "video" && <Text style={styles.videoDot}>▶</Text>}
           </>
         ) : (
           <Text style={[styles.tileNumber, future && styles.futureNumber]}>
@@ -576,6 +557,11 @@ function DateTile({
           </Text>
         )}
       </View>
+      {moment && (
+        <Text maxFontSizeMultiplier={1.2} style={styles.tileNumberFilled}>
+          {day}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -599,208 +585,197 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   retryText: { color: colors.ink, fontWeight: "700" },
-  scroll: { paddingHorizontal: 12, paddingTop: 20, paddingBottom: 110 },
+  scroll: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 120,
+    minHeight: "100%",
+  },
   topline: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  brand: { fontFamily: type.display, color: colors.ink, fontSize: 27 },
+  brand: {
+    color: colors.olive,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 2.1,
+  },
   settings: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.09)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.035)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
   },
-  settingsText: { fontSize: 15, color: colors.ink, marginTop: -8 },
-  eyebrow: {
-    color: colors.muted,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.6,
-    marginTop: 4,
-  },
+  settingsText: { fontSize: 14, color: colors.ink, marginTop: -7 },
   headingRow: {
-    marginTop: 43,
+    marginTop: 2,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
   },
   headingContent: { flex: 1, minWidth: 0 },
-  sectionKicker: {
-    color: colors.olive,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.7,
-  },
+  monthPicker: { minHeight: 98, justifyContent: "center" },
   monthTitle: {
     fontFamily: type.display,
     color: colors.ink,
-    fontSize: 32,
-    marginTop: 8,
+    fontSize: 39,
+    fontWeight: "700",
+    letterSpacing: -1.3,
   },
-  down: { fontFamily: undefined, fontSize: 22, color: colors.muted },
-  todayPill: {
-    flexShrink: 0,
-    paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.09)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 3,
-  },
-  todayText: { color: colors.plum, fontWeight: "600", fontSize: 13 },
+  yearText: { color: colors.muted, fontSize: 16, marginTop: 1 },
   monthNav: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 22,
-    marginBottom: 14,
+    gap: 8,
   },
   arrow: {
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 24,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: colors.line,
+    backgroundColor: "rgba(255,255,255,0.045)",
   },
-  arrowText: { color: colors.ink, fontSize: 29, lineHeight: 30, marginTop: -4 },
+  arrowText: { color: colors.ink, fontSize: 28, lineHeight: 30, marginTop: -4 },
   arrowDisabled: { opacity: 0.35 },
   disabledText: { opacity: 0.35 },
-  monthNote: {
-    color: colors.muted,
-    fontSize: 12,
-    flex: 1,
-    textAlign: "center",
-    paddingHorizontal: 8,
-  },
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginTop: 22,
+    marginBottom: 18,
   },
   weekLabel: {
     textAlign: "center",
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    rowGap: 10,
   },
   tile: {
-    backgroundColor: colors.card,
-    borderRadius: 13,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  todayTile: { borderColor: colors.plum, borderWidth: 2 },
-  tileNumber: { color: colors.muted, fontSize: 14 },
+  todayTile: {
+    width: 33,
+    height: 33,
+    borderRadius: 17,
+    borderColor: colors.olive,
+    borderWidth: 1.5,
+    backgroundColor: "rgba(213,160,99,0.09)",
+  },
+  tileNumber: { color: colors.muted, fontSize: 12 },
   futureNumber: { opacity: 0.32 },
   tileNumberFilled: {
-    position: "absolute",
-    color: colors.white,
-    bottom: 3,
-    left: 3,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    overflow: "hidden",
-    backgroundColor: "rgba(20,15,14,0.56)",
+    color: colors.muted,
     textAlign: "center",
-    lineHeight: 22,
+    marginTop: 4,
     fontSize: 11,
-    fontWeight: "700",
   },
   videoDot: {
     position: "absolute",
-    right: 5,
-    top: 4,
+    left: 0,
+    right: 0,
+    top: "34%",
     color: colors.white,
-    fontSize: 8,
-  },
-  tip: {
-    marginTop: 26,
-    borderTopColor: colors.line,
-    borderTopWidth: 1,
-    paddingTop: 20,
-  },
-  tipTitle: {
-    fontFamily: type.display,
-    fontStyle: "italic",
-    fontSize: 21,
-    color: colors.plum,
-  },
-  tipText: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 6,
-    maxWidth: 260,
+    fontSize: 14,
+    textAlign: "center",
+    textShadowColor: "#000",
+    textShadowRadius: 8,
   },
   bottomBar: {
     position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: Platform.OS === "web" ? 12 : 10,
-    padding: 8,
-    borderRadius: 30,
+    alignSelf: "center",
+    bottom: Platform.OS === "web" ? 20 : 16,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.23)",
-    backgroundColor: "rgba(55,53,52,0.48)",
+    borderColor: "rgba(216,182,144,0.4)",
+    backgroundColor: "rgba(42,32,27,0.85)",
   },
   addButton: {
-    height: 56,
-    borderRadius: 24,
-    backgroundColor: colors.plum,
-    flexDirection: "row",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
   },
-  plus: { color: colors.white, fontSize: 24, marginTop: -2 },
-  addText: { color: colors.white, fontSize: 15, fontWeight: "700" },
+  cameraBody: {
+    width: 26,
+    height: 19,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cameraTop: {
+    position: "absolute",
+    top: -6,
+    width: 10,
+    height: 5,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+    backgroundColor: colors.ink,
+  },
+  cameraLens: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.ink,
+  },
   previewShade: {
     flex: 1,
-    backgroundColor: "rgba(30,23,27,0.65)",
+    backgroundColor: "rgba(7,5,4,0.82)",
     justifyContent: "center",
     alignItems: "center",
   },
   previewCard: {
     backgroundColor: colors.card,
-    borderRadius: 26,
-    padding: 22,
-    alignItems: "center",
-    maxWidth: "88%",
+    borderRadius: 30,
+    padding: 18,
+    width: "84%",
+    maxWidth: 350,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   previewDate: {
-    marginTop: 20,
     color: colors.ink,
     fontFamily: type.display,
-    fontSize: 20,
-    textAlign: "center",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  previewMeta: { color: colors.muted, marginTop: 4, fontSize: 12 },
+  previewMedia: {
+    marginTop: 16,
+    borderRadius: 22,
+    overflow: "hidden",
+    alignSelf: "center",
   },
   previewCaption: {
-    marginTop: 8,
-    color: colors.muted,
-    fontSize: 14,
-    textAlign: "center",
+    marginTop: 12,
+    color: colors.ink,
+    fontSize: 13,
   },
-  previewHint: { marginTop: 14, fontSize: 11, color: colors.olive },
   yearBackdrop: { flex: 1, backgroundColor: colors.paper },
   yearPage: {
     flex: 1,

@@ -7,11 +7,13 @@ import type { Moment } from "../state/DiaryContext";
 export function MomentMedia({
   moment,
   size,
+  height = size,
   focused = false,
   playing = true,
 }: {
   moment: Moment;
   size: number;
+  height?: number;
   focused?: boolean;
   playing?: boolean;
 }) {
@@ -33,7 +35,7 @@ export function MomentMedia({
       contentPosition={moment.frame ?? "center"}
       style={{
         width: size,
-        height: size,
+        height,
         borderRadius: moment.kind === "video" ? size / 2 : 5,
       }}
     />
