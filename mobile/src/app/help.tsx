@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { colors, type } from "../lib/theme";
+import { useThemedStyles, type ThemeColors, type } from "../lib/theme";
 
 const notes = [
   [
@@ -34,6 +34,7 @@ const notes = [
 ];
 
 export default function HelpScreen() {
+  const styles = useThemedStyles(createStyles);
   return (
     <SafeAreaView style={styles.page}>
       <TouchableOpacity
@@ -59,30 +60,31 @@ export default function HelpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    width: "100%",
-    maxWidth: 480,
-    alignSelf: "center",
-  },
-  back: { minHeight: 54, paddingHorizontal: 24, justifyContent: "center" },
-  backText: { color: colors.ink, fontSize: 15 },
-  content: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 48 },
-  title: { color: colors.ink, fontFamily: type.display, fontSize: 34 },
-  intro: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: 11,
-    marginBottom: 15,
-  },
-  note: {
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  heading: { color: colors.ink, fontSize: 15, fontWeight: "700" },
-  body: { color: colors.muted, fontSize: 13, lineHeight: 21, marginTop: 7 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.paper,
+      width: "100%",
+      maxWidth: 480,
+      alignSelf: "center",
+    },
+    back: { minHeight: 54, paddingHorizontal: 24, justifyContent: "center" },
+    backText: { color: colors.ink, fontSize: 15 },
+    content: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 48 },
+    title: { color: colors.ink, fontFamily: type.display, fontSize: 34 },
+    intro: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 22,
+      marginTop: 11,
+      marginBottom: 15,
+    },
+    note: {
+      paddingVertical: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.line,
+    },
+    heading: { color: colors.ink, fontSize: 15, fontWeight: "700" },
+    body: { color: colors.muted, fontSize: 13, lineHeight: 21, marginTop: 7 },
+  });

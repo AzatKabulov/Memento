@@ -3,9 +3,16 @@ import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
 import { supabase } from "../../auth/client";
-import { colors, type } from "../../lib/theme";
+import {
+  useThemeColors,
+  useThemedStyles,
+  type ThemeColors,
+  type,
+} from "../../lib/theme";
 
 export default function ResetPassword() {
+  const colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
   const { code } = useLocalSearchParams<{ code?: string }>();
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
@@ -72,31 +79,37 @@ export default function ResetPassword() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    justifyContent: "center",
-    padding: 28,
-  },
-  title: { color: colors.ink, fontFamily: type.display, fontSize: 32 },
-  detail: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 14 },
-  input: {
-    backgroundColor: colors.card,
-    color: colors.ink,
-    borderRadius: 22,
-    minHeight: 56,
-    marginTop: 25,
-    paddingHorizontal: 17,
-  },
-  primary: {
-    backgroundColor: colors.plum,
-    borderRadius: 28,
-    minHeight: 56,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 25,
-  },
-  primaryText: { color: colors.buttonInk, fontWeight: "700" },
-  link: { color: colors.ink, marginTop: 28, fontSize: 13 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.paper,
+      justifyContent: "center",
+      padding: 28,
+    },
+    title: { color: colors.ink, fontFamily: type.display, fontSize: 32 },
+    detail: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 21,
+      marginTop: 14,
+    },
+    input: {
+      backgroundColor: colors.card,
+      color: colors.ink,
+      borderRadius: 22,
+      minHeight: 56,
+      marginTop: 25,
+      paddingHorizontal: 17,
+    },
+    primary: {
+      backgroundColor: colors.plum,
+      borderRadius: 28,
+      minHeight: 56,
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: 25,
+    },
+    primaryText: { color: colors.buttonInk, fontWeight: "700" },
+    link: { color: colors.ink, marginTop: 28, fontSize: 13 },
+  });

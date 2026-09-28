@@ -10,11 +10,18 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../../auth/AuthContext";
-import { colors, type } from "../../lib/theme";
+import {
+  useThemeColors,
+  useThemedStyles,
+  type ThemeColors,
+  type,
+} from "../../lib/theme";
 
 type Mode = "signIn" | "signUp" | "reset";
 
 export default function AccountScreen() {
+  const colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
   const auth = useAuth();
   const [mode, setMode] = useState<Mode>("signIn");
   const [email, setEmail] = useState("");
@@ -170,61 +177,62 @@ export default function AccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.paper },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: 26,
-    paddingTop: 10,
-    paddingBottom: 36,
-    maxWidth: 480,
-    width: "100%",
-    alignSelf: "center",
-  },
-  back: { minHeight: 44, justifyContent: "center" },
-  backText: { color: colors.ink, fontSize: 15 },
-  eyebrow: {
-    color: colors.olive,
-    fontSize: 10,
-    letterSpacing: 1.8,
-    fontWeight: "700",
-    marginTop: 58,
-  },
-  title: {
-    color: colors.ink,
-    fontFamily: type.display,
-    fontSize: 36,
-    marginTop: 10,
-  },
-  intro: { color: colors.muted, fontSize: 14, lineHeight: 22, marginTop: 13 },
-  form: { marginTop: 44 },
-  label: {
-    color: colors.olive,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    fontWeight: "700",
-    marginBottom: 10,
-    marginTop: 22,
-  },
-  input: {
-    minHeight: 56,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-    color: colors.ink,
-    paddingHorizontal: 18,
-    fontSize: 16,
-  },
-  message: { color: colors.ink, fontSize: 13, lineHeight: 20, marginTop: 20 },
-  primary: {
-    minHeight: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.plum,
-    marginTop: 29,
-  },
-  busy: { opacity: 0.6 },
-  primaryText: { color: colors.buttonInk, fontWeight: "700", fontSize: 15 },
-  links: { alignItems: "center", gap: 18, marginTop: 27 },
-  link: { color: colors.ink, fontSize: 13 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: { flex: 1, backgroundColor: colors.paper },
+    content: {
+      flexGrow: 1,
+      paddingHorizontal: 26,
+      paddingTop: 10,
+      paddingBottom: 36,
+      maxWidth: 480,
+      width: "100%",
+      alignSelf: "center",
+    },
+    back: { minHeight: 44, justifyContent: "center" },
+    backText: { color: colors.ink, fontSize: 15 },
+    eyebrow: {
+      color: colors.olive,
+      fontSize: 10,
+      letterSpacing: 1.8,
+      fontWeight: "700",
+      marginTop: 58,
+    },
+    title: {
+      color: colors.ink,
+      fontFamily: type.display,
+      fontSize: 36,
+      marginTop: 10,
+    },
+    intro: { color: colors.muted, fontSize: 14, lineHeight: 22, marginTop: 13 },
+    form: { marginTop: 44 },
+    label: {
+      color: colors.olive,
+      fontSize: 10,
+      letterSpacing: 1.5,
+      fontWeight: "700",
+      marginBottom: 10,
+      marginTop: 22,
+    },
+    input: {
+      minHeight: 56,
+      borderRadius: 22,
+      backgroundColor: colors.card,
+      color: colors.ink,
+      paddingHorizontal: 18,
+      fontSize: 16,
+    },
+    message: { color: colors.ink, fontSize: 13, lineHeight: 20, marginTop: 20 },
+    primary: {
+      minHeight: 56,
+      borderRadius: 28,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.plum,
+      marginTop: 29,
+    },
+    busy: { opacity: 0.6 },
+    primaryText: { color: colors.buttonInk, fontWeight: "700", fontSize: 15 },
+    links: { alignItems: "center", gap: 18, marginTop: 27 },
+    link: { color: colors.ink, fontSize: 13 },
+  });

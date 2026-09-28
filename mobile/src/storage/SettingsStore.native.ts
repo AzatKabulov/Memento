@@ -5,6 +5,7 @@ export type LocalSettings = {
   reminderHour: number;
   reminderMinute: number;
   autoplay: boolean;
+  theme: "dark" | "light";
   savedMediaBytes: number;
   savedCount: number;
 };
@@ -14,7 +15,7 @@ export async function loadLocalSettings(
 ): Promise<LocalSettings> {
   const db = await database;
   const rows = await db.getAllAsync<{ key: string; value: string }>(
-    "SELECT key, value FROM preferences WHERE owner_id = ? AND key IN ('reminder_enabled', 'reminder_hour', 'reminder_minute', 'autoplay')",
+    "SELECT key, value FROM preferences WHERE owner_id = ? AND key IN ('reminder_enabled', 'reminder_hour', 'reminder_minute', 'autoplay', 'theme')",
     ownerId,
   );
   const values = Object.fromEntries(rows.map(({ key, value }) => [key, value]));
@@ -32,6 +33,7 @@ export async function loadLocalSettings(
     reminderMinute:
       Number.isInteger(minute) && minute >= 0 && minute <= 59 ? minute : 0,
     autoplay: values.autoplay !== "false",
+    theme: values.theme === "light" ? "light" : "dark",
     savedMediaBytes: usage?.bytes ?? 0,
     savedCount: usage?.count ?? 0,
   };
@@ -39,7 +41,12 @@ export async function loadLocalSettings(
 
 export async function saveLocalSetting(
   ownerId: string,
-  key: "reminder_enabled" | "reminder_hour" | "reminder_minute" | "autoplay",
+  key:
+    | "reminder_enabled"
+    | "reminder_hour"
+    | "reminder_minute"
+    | "autoplay"
+    | "theme",
   value: string,
 ) {
   const db = await database;

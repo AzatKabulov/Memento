@@ -3,9 +3,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { supabase } from "../../auth/client";
-import { colors, type } from "../../lib/theme";
+import { useThemedStyles, type ThemeColors, type } from "../../lib/theme";
 
 export default function AuthCallback() {
+  const styles = useThemedStyles(createStyles);
   const { code } = useLocalSearchParams<{ code?: string }>();
   const [error, setError] = useState("");
   const missingLink = !supabase || !code;
@@ -38,14 +39,15 @@ export default function AuthCallback() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    justifyContent: "center",
-    padding: 30,
-  },
-  title: { color: colors.ink, fontFamily: type.display, fontSize: 29 },
-  detail: { color: colors.muted, fontSize: 14, marginTop: 16 },
-  link: { color: colors.ink, fontWeight: "700", marginTop: 25 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.paper,
+      justifyContent: "center",
+      padding: 30,
+    },
+    title: { color: colors.ink, fontFamily: type.display, fontSize: 29 },
+    detail: { color: colors.muted, fontSize: 14, marginTop: 16 },
+    link: { color: colors.ink, fontWeight: "700", marginTop: 25 },
+  });

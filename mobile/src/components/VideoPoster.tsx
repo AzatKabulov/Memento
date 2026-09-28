@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { createVideoPlayer, type VideoThumbnail } from "expo-video";
 import { Platform, StyleSheet, Text, View } from "react-native";
-import { colors } from "../lib/theme";
+import { useThemedStyles, type ThemeColors } from "../lib/theme";
 
 const thumbnails = new Map<string, VideoThumbnail>();
 const pending = new Map<string, Promise<VideoThumbnail | null>>();
@@ -58,6 +58,7 @@ export function VideoPoster({
   size: number;
   visible: boolean;
 }) {
+  const styles = useThemedStyles(createStyles);
   const [thumbnail, setThumbnail] = useState<VideoThumbnail | null>(
     uri ? (thumbnails.get(uri) ?? null) : null,
   );
@@ -99,13 +100,14 @@ export function VideoPoster({
   );
 }
 
-const styles = StyleSheet.create({
-  poster: {
-    backgroundColor: "#48413D",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    borderRadius: 1000,
-  },
-  fallback: { color: colors.ink, fontSize: 15, opacity: 0.8 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    poster: {
+      backgroundColor: "#48413D",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      borderRadius: 1000,
+    },
+    fallback: { color: colors.ink, fontSize: 15, opacity: 0.8 },
+  });

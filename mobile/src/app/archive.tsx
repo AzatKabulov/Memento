@@ -17,10 +17,11 @@ import {
   type InspectedArchive,
 } from "../archive/DiaryArchive";
 import { useAuth } from "../auth/AuthContext";
-import { colors, type } from "../lib/theme";
+import { useThemedStyles, type ThemeColors, type } from "../lib/theme";
 import { useDiary } from "../state/DiaryContext";
 
 export default function ArchiveScreen() {
+  const styles = useThemedStyles(createStyles);
   const auth = useAuth();
   const diary = useDiary();
   const ownerRef = useRef(auth.ownerId);
@@ -260,81 +261,82 @@ export default function ArchiveScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    width: "100%",
-    maxWidth: 480,
-    alignSelf: "center",
-  },
-  back: { minHeight: 54, justifyContent: "center", paddingHorizontal: 24 },
-  backText: { color: colors.ink, fontSize: 15 },
-  content: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 48 },
-  title: { color: colors.ink, fontFamily: type.display, fontSize: 34 },
-  intro: { color: colors.muted, fontSize: 14, lineHeight: 22, marginTop: 12 },
-  note: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 20 },
-  group: {
-    marginTop: 31,
-    paddingTop: 22,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  groupTitle: { color: colors.ink, fontFamily: type.display, fontSize: 23 },
-  detail: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 8 },
-  button: {
-    minHeight: 52,
-    backgroundColor: colors.plum,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 18,
-  },
-  buttonText: { color: colors.buttonInk, fontWeight: "700", fontSize: 14 },
-  secondaryButton: {
-    minHeight: 52,
-    backgroundColor: colors.card,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 18,
-  },
-  secondaryText: { color: colors.ink, fontWeight: "700", fontSize: 14 },
-  disabled: { opacity: 0.4 },
-  inspection: {
-    marginTop: 18,
-    padding: 18,
-    backgroundColor: colors.card,
-    borderRadius: 22,
-  },
-  inspectionTitle: { color: colors.ink, fontWeight: "700", fontSize: 14 },
-  option: {
-    minHeight: 48,
-    justifyContent: "center",
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    marginTop: 8,
-  },
-  optionText: { color: colors.ink, fontSize: 13, fontWeight: "600" },
-  progressBox: {
-    marginTop: 25,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  progress: { color: colors.ink, fontSize: 13 },
-  cancel: {
-    minWidth: 60,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelText: { color: colors.olive, fontWeight: "700" },
-  message: { color: colors.ink, fontSize: 13, lineHeight: 20, marginTop: 20 },
-  footnote: {
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 17,
-    marginTop: 35,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.paper,
+      width: "100%",
+      maxWidth: 480,
+      alignSelf: "center",
+    },
+    back: { minHeight: 54, justifyContent: "center", paddingHorizontal: 24 },
+    backText: { color: colors.ink, fontSize: 15 },
+    content: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 48 },
+    title: { color: colors.ink, fontFamily: type.display, fontSize: 34 },
+    intro: { color: colors.muted, fontSize: 14, lineHeight: 22, marginTop: 12 },
+    note: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 20 },
+    group: {
+      marginTop: 31,
+      paddingTop: 22,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+    },
+    groupTitle: { color: colors.ink, fontFamily: type.display, fontSize: 23 },
+    detail: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 8 },
+    button: {
+      minHeight: 52,
+      backgroundColor: colors.plum,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 18,
+    },
+    buttonText: { color: colors.buttonInk, fontWeight: "700", fontSize: 14 },
+    secondaryButton: {
+      minHeight: 52,
+      backgroundColor: colors.card,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 18,
+    },
+    secondaryText: { color: colors.ink, fontWeight: "700", fontSize: 14 },
+    disabled: { opacity: 0.4 },
+    inspection: {
+      marginTop: 18,
+      padding: 18,
+      backgroundColor: colors.card,
+      borderRadius: 22,
+    },
+    inspectionTitle: { color: colors.ink, fontWeight: "700", fontSize: 14 },
+    option: {
+      minHeight: 48,
+      justifyContent: "center",
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+      marginTop: 8,
+    },
+    optionText: { color: colors.ink, fontSize: 13, fontWeight: "600" },
+    progressBox: {
+      marginTop: 25,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    progress: { color: colors.ink, fontSize: 13 },
+    cancel: {
+      minWidth: 60,
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelText: { color: colors.olive, fontWeight: "700" },
+    message: { color: colors.ink, fontSize: 13, lineHeight: 20, marginTop: 20 },
+    footnote: {
+      color: colors.muted,
+      fontSize: 11,
+      lineHeight: 17,
+      marginTop: 35,
+    },
+  });

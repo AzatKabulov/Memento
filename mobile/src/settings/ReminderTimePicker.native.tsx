@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { colors } from "../lib/theme";
+import { useThemedStyles, type ThemeColors } from "../lib/theme";
 
 export function ReminderTimePicker({
   hour,
@@ -18,6 +18,7 @@ export function ReminderTimePicker({
   minute: number;
   onChange: (hour: number, minute: number) => void;
 }) {
+  const styles = useThemedStyles(createStyles);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => new Date(2026, 0, 1, hour, minute));
   const label = new Date(2026, 0, 1, hour, minute).toLocaleTimeString([], {
@@ -70,16 +71,17 @@ export function ReminderTimePicker({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  time: { color: colors.ink, fontSize: 15 },
-  change: { color: colors.olive, fontSize: 13, fontWeight: "700" },
-  picker: { paddingBottom: 10 },
-  done: { minHeight: 44, alignItems: "center", justifyContent: "center" },
-  doneText: { color: colors.ink, fontWeight: "700" },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    button: {
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    time: { color: colors.ink, fontSize: 15 },
+    change: { color: colors.olive, fontSize: 13, fontWeight: "700" },
+    picker: { paddingBottom: 10 },
+    done: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+    doneText: { color: colors.ink, fontWeight: "700" },
+  });

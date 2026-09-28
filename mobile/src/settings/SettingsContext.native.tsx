@@ -166,7 +166,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [ownerId, settings, diary.moments, notificationPermission, activity]);
 
   const setPreference = async (
-    key: "reminder_enabled" | "reminder_hour" | "reminder_minute" | "autoplay",
+    key:
+      | "reminder_enabled"
+      | "reminder_hour"
+      | "reminder_minute"
+      | "autoplay"
+      | "theme",
     value: string,
   ) => {
     if (!ownerId) return;
@@ -183,6 +188,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     notificationPermission,
     reminderError,
     autoplay: settings?.autoplay ?? true,
+    theme: settings?.theme ?? "dark",
     savedMediaBytes: settings?.savedMediaBytes ?? 0,
     savedCount: settings?.savedCount ?? 0,
     setReminderEnabled: async (enabled) => {
@@ -214,6 +220,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       await refresh();
     },
     setAutoplay: async (enabled) => setPreference("autoplay", String(enabled)),
+    setTheme: async (theme) => setPreference("theme", theme),
     refresh,
   };
   return <Context.Provider value={state}>{children}</Context.Provider>;

@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../auth/AuthContext";
-import { colors, type } from "../lib/theme";
+import {
+  useThemeColors,
+  useThemedStyles,
+  type ThemeColors,
+  type,
+} from "../lib/theme";
 import { ReminderTimePicker } from "../settings/ReminderTimePicker";
 import { useSettings } from "../settings/SettingsContext";
 
@@ -27,6 +32,7 @@ function SettingLink({
   detail: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -46,6 +52,8 @@ function SettingLink({
 }
 
 export default function Settings() {
+  const colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
   const auth = useAuth();
   const settings = useSettings();
   const update = (work: Promise<void>) => {
@@ -74,6 +82,27 @@ export default function Settings() {
         </View>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.description}>Keep your diary yours.</Text>
+
+        <Text style={styles.sectionTitle}>APPEARANCE</Text>
+        <View style={styles.themeGroup}>
+          {(["dark", "light"] as const).map((theme) => (
+            <TouchableOpacity
+              key={theme}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: settings.theme === theme }}
+              accessibilityLabel={`${theme === "dark" ? "Dark" : "Light"} theme`}
+              onPress={() => update(settings.setTheme(theme))}
+              style={[
+                styles.themeOption,
+                settings.theme === theme && styles.themeOptionSelected,
+              ]}
+            >
+              <Text style={styles.themeOptionText}>
+                {theme === "dark" ? "Dark" : "Light"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Text style={styles.sectionTitle}>DAILY RITUAL</Text>
         <View style={styles.group}>
@@ -230,135 +259,154 @@ export default function Settings() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    width: "100%",
-    maxWidth: 480,
-    alignSelf: "center",
-  },
-  topline: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  brand: {
-    color: colors.olive,
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 2.1,
-  },
-  back: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.card,
-  },
-  backText: { color: colors.ink, fontSize: 24, lineHeight: 27 },
-  scroll: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 48 },
-  title: {
-    color: colors.ink,
-    fontFamily: type.display,
-    fontSize: 38,
-    fontWeight: "700",
-    marginTop: 8,
-  },
-  description: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    color: colors.muted,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    marginTop: 31,
-    marginBottom: 9,
-    marginLeft: 3,
-  },
-  group: {
-    gap: 9,
-  },
-  row: {
-    minHeight: 78,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.card,
-  },
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#2D2421",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconText: { color: colors.ink, fontSize: 19, fontWeight: "600" },
-  rowCopy: { flex: 1, paddingVertical: 15 },
-  itemTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
-  itemDetail: {
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  timeRow: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 16,
-  },
-  permission: {
-    minHeight: 48,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    justifyContent: "center",
-  },
-  permissionText: { color: colors.olive, fontSize: 12, lineHeight: 18 },
-  link: {
-    minHeight: 78,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.card,
-  },
-  linkCopy: { flex: 1, paddingVertical: 12 },
-  arrow: { color: colors.muted, fontSize: 27, marginLeft: 6 },
-  usage: {
-    padding: 16,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.card,
-  },
-  signOutNote: {
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 17,
-    textAlign: "center",
-    marginTop: 12,
-  },
-  version: {
-    color: colors.muted,
-    fontSize: 11,
-    marginTop: 29,
-    lineHeight: 16,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.paper,
+      width: "100%",
+      maxWidth: 480,
+      alignSelf: "center",
+    },
+    topline: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    brand: {
+      color: colors.olive,
+      fontSize: 13,
+      fontWeight: "800",
+      letterSpacing: 2.1,
+    },
+    back: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.card,
+    },
+    backText: { color: colors.ink, fontSize: 24, lineHeight: 27 },
+    scroll: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 48 },
+    title: {
+      color: colors.ink,
+      fontFamily: type.display,
+      fontSize: 38,
+      fontWeight: "700",
+      marginTop: 8,
+    },
+    description: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 22,
+      marginTop: 2,
+    },
+    sectionTitle: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: "700",
+      letterSpacing: 1.2,
+      marginTop: 31,
+      marginBottom: 9,
+      marginLeft: 3,
+    },
+    themeGroup: {
+      flexDirection: "row",
+      padding: 5,
+      gap: 5,
+      borderRadius: 23,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    themeOption: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    themeOptionSelected: { backgroundColor: colors.blush },
+    themeOptionText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
+    group: {
+      gap: 9,
+    },
+    row: {
+      minHeight: 78,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 14,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.card,
+    },
+    iconCircle: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.iconSurface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconText: { color: colors.ink, fontSize: 19, fontWeight: "600" },
+    rowCopy: { flex: 1, paddingVertical: 15 },
+    itemTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
+    itemDetail: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 4,
+    },
+    timeRow: {
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.card,
+      borderRadius: 22,
+      padding: 16,
+    },
+    permission: {
+      minHeight: 48,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+      justifyContent: "center",
+    },
+    permissionText: { color: colors.olive, fontSize: 12, lineHeight: 18 },
+    link: {
+      minHeight: 78,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 14,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.card,
+    },
+    linkCopy: { flex: 1, paddingVertical: 12 },
+    arrow: { color: colors.muted, fontSize: 27, marginLeft: 6 },
+    usage: {
+      padding: 16,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.card,
+    },
+    signOutNote: {
+      color: colors.muted,
+      fontSize: 11,
+      lineHeight: 17,
+      textAlign: "center",
+      marginTop: 12,
+    },
+    version: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 29,
+      lineHeight: 16,
+    },
+  });

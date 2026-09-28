@@ -1,6 +1,6 @@
 import React from "react";
 import { Text } from "react-native";
-import { colors } from "../lib/theme";
+import { useThemeColors } from "../lib/theme";
 
 export function ReminderTimePicker({
   hour,
@@ -10,6 +10,7 @@ export function ReminderTimePicker({
   minute: number;
   onChange: (hour: number, minute: number) => void;
 }) {
+  const colors = useThemeColors();
   const label = new Date(2026, 0, 1, hour, minute).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",

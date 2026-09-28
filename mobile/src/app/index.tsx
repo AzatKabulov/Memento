@@ -32,15 +32,16 @@ import {
   momentLabel,
   monthLabel,
 } from "../lib/dates";
-import { colors, type } from "../lib/theme";
+import { useThemedStyles, type ThemeColors, type } from "../lib/theme";
 import { pickMedia, showPickMediaError } from "../lib/pickMedia";
 import { useDiary, type Moment } from "../state/DiaryContext";
 
 const weekdays = ["M", "T", "W", "T", "F", "S", "S"];
 
 export default function CalendarScreen() {
+  const styles = useThemedStyles(createStyles);
   const { entered, ready, storageError, retryLoad, moments } = useDiary();
-  const { autoplay } = useSettings();
+  const { autoplay, theme } = useSettings();
   const today = diaryDate(new Date());
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -221,7 +222,15 @@ export default function CalendarScreen() {
                 }}
                 style={styles.monthPicker}
               >
-                <Text style={styles.monthTitle}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.76}
+                  style={[
+                    styles.monthTitle,
+                    { fontSize: viewportWidth < 360 ? 29 : 39 },
+                  ]}
+                >
                   {new Intl.DateTimeFormat("en", { month: "long" }).format(
                     visibleMonth,
                   )}
@@ -310,7 +319,11 @@ export default function CalendarScreen() {
         blurTarget={blurTargetRef}
         blurMethod="dimezisBlurViewSdk31Plus"
         intensity={65}
-        tint="systemThinMaterialDark"
+        tint={
+          theme === "light"
+            ? "systemThinMaterialLight"
+            : "systemThinMaterialDark"
+        }
         style={styles.bottomBar}
       >
         <TouchableOpacity
@@ -510,6 +523,7 @@ function DateTile({
   onHold: () => void;
   onRelease: () => void;
 }) {
+  const styles = useThemedStyles(createStyles);
   const day = dateFromDiary(date).getDate();
   const future = date > today;
   return (
@@ -527,7 +541,9 @@ function DateTile({
         style={[
           styles.tile,
           { width: size, height: size },
+          !moment && styles.emptyTile,
           !moment && date === today && styles.todayTile,
+          !moment && future && styles.futureTile,
         ]}
       >
         {moment ? (
@@ -566,289 +582,302 @@ function DateTile({
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    width: "100%",
-    maxWidth: 480,
-    alignSelf: "center",
-  },
-  loading: { color: colors.ink, textAlign: "center", marginTop: 80 },
-  retry: {
-    alignSelf: "center",
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    marginTop: 15,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-  },
-  retryText: { color: colors.ink, fontWeight: "700" },
-  scroll: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 120,
-    minHeight: "100%",
-  },
-  topline: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  brand: {
-    color: colors.olive,
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 2.1,
-  },
-  settings: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.035)",
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  settingsText: { fontSize: 14, color: colors.ink, marginTop: -7 },
-  headingRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headingContent: { flex: 1, minWidth: 0 },
-  monthPicker: { minHeight: 98, justifyContent: "center" },
-  monthTitle: {
-    fontFamily: type.display,
-    color: colors.ink,
-    fontSize: 39,
-    fontWeight: "700",
-    letterSpacing: -1.3,
-  },
-  yearText: { color: colors.muted, fontSize: 16, marginTop: 1 },
-  monthNav: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: 8,
-  },
-  arrow: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: "rgba(255,255,255,0.045)",
-  },
-  arrowText: { color: colors.ink, fontSize: 28, lineHeight: 30, marginTop: -4 },
-  arrowDisabled: { opacity: 0.35 },
-  disabledText: { opacity: 0.35 },
-  weekRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 22,
-    marginBottom: 18,
-  },
-  weekLabel: {
-    textAlign: "center",
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 10,
-  },
-  tile: {
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  todayTile: {
-    width: 33,
-    height: 33,
-    borderRadius: 17,
-    borderColor: colors.olive,
-    borderWidth: 1.5,
-    backgroundColor: "rgba(213,160,99,0.09)",
-  },
-  tileNumber: { color: colors.muted, fontSize: 12 },
-  futureNumber: { opacity: 0.32 },
-  tileNumberFilled: {
-    color: colors.muted,
-    textAlign: "center",
-    marginTop: 4,
-    fontSize: 11,
-  },
-  videoDot: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: "34%",
-    color: colors.white,
-    fontSize: 14,
-    textAlign: "center",
-    textShadowColor: "#000",
-    textShadowRadius: 8,
-  },
-  bottomBar: {
-    position: "absolute",
-    alignSelf: "center",
-    bottom: Platform.OS === "web" ? 20 : 16,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(216,182,144,0.4)",
-    backgroundColor: "rgba(42,32,27,0.85)",
-  },
-  addButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cameraBody: {
-    width: 26,
-    height: 19,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cameraTop: {
-    position: "absolute",
-    top: -6,
-    width: 10,
-    height: 5,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-    backgroundColor: colors.ink,
-  },
-  cameraLens: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: colors.ink,
-  },
-  previewShade: {
-    flex: 1,
-    backgroundColor: "rgba(7,5,4,0.82)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  previewCard: {
-    backgroundColor: colors.card,
-    borderRadius: 30,
-    padding: 18,
-    width: "84%",
-    maxWidth: 350,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  previewDate: {
-    color: colors.ink,
-    fontFamily: type.display,
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  previewMeta: { color: colors.muted, marginTop: 4, fontSize: 12 },
-  previewMedia: {
-    marginTop: 16,
-    borderRadius: 22,
-    overflow: "hidden",
-    alignSelf: "center",
-  },
-  previewCaption: {
-    marginTop: 12,
-    color: colors.ink,
-    fontSize: 13,
-  },
-  yearBackdrop: { flex: 1, backgroundColor: colors.paper },
-  yearPage: {
-    flex: 1,
-    width: "100%",
-    maxWidth: 480,
-    alignSelf: "center",
-    backgroundColor: colors.paper,
-    paddingHorizontal: 22,
-    paddingTop: 20,
-  },
-  yearHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  yearTitle: { fontFamily: type.display, fontSize: 28, color: colors.ink },
-  yearSubtitle: { color: colors.muted, fontSize: 12, marginTop: 5 },
-  yearDone: {
-    minWidth: 54,
-    minHeight: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  close: { color: colors.plum, fontSize: 15, fontWeight: "700" },
-  yearSelector: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 22,
-  },
-  yearStep: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  yearStepText: { color: colors.ink, fontSize: 28, lineHeight: 32 },
-  yearNumber: { color: colors.ink, fontFamily: type.display, fontSize: 30 },
-  yearScroll: { paddingBottom: 28 },
-  yearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  yearMonth: {
-    width: "48%",
-    minHeight: 122,
-    backgroundColor: colors.card,
-    borderRadius: 23,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-  },
-  yearMonthFuture: { opacity: 0.35 },
-  yearVideoOnly: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: "#48413D",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  yearMonthLabel: {
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    minHeight: 46,
-    backgroundColor: "rgba(20,18,17,0.72)",
-  },
-  yearMonthText: { color: colors.ink, fontFamily: type.display, fontSize: 17 },
-  yearMonthCount: {
-    color: colors.ink,
-    fontSize: 10,
-    opacity: 0.8,
-    marginTop: 2,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: colors.paper,
+      width: "100%",
+      maxWidth: 480,
+      alignSelf: "center",
+    },
+    loading: { color: colors.ink, textAlign: "center", marginTop: 80 },
+    retry: {
+      alignSelf: "center",
+      minHeight: 44,
+      justifyContent: "center",
+      paddingHorizontal: 20,
+      marginTop: 15,
+      borderRadius: 22,
+      backgroundColor: colors.card,
+    },
+    retryText: { color: colors.ink, fontWeight: "700" },
+    scroll: {
+      paddingHorizontal: 18,
+      paddingTop: 12,
+      paddingBottom: 120,
+      minHeight: "100%",
+    },
+    topline: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    brand: {
+      color: colors.olive,
+      fontSize: 13,
+      fontWeight: "800",
+      letterSpacing: 2.1,
+    },
+    settings: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.line,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    settingsText: { fontSize: 14, color: colors.ink, marginTop: -7 },
+    headingRow: {
+      marginTop: 2,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    headingContent: { flex: 1, minWidth: 0 },
+    monthPicker: { minHeight: 98, justifyContent: "center" },
+    monthTitle: {
+      fontFamily: type.display,
+      color: colors.ink,
+      fontSize: 39,
+      fontWeight: "700",
+      letterSpacing: -1.3,
+    },
+    yearText: { color: colors.muted, fontSize: 16, marginTop: 1 },
+    monthNav: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      alignItems: "center",
+      gap: 8,
+    },
+    arrow: {
+      width: 42,
+      height: 42,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 21,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.card,
+    },
+    arrowText: {
+      color: colors.ink,
+      fontSize: 28,
+      lineHeight: 30,
+      marginTop: -4,
+    },
+    arrowDisabled: { opacity: 0.35 },
+    disabledText: { opacity: 0.35 },
+    weekRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 22,
+      marginBottom: 18,
+    },
+    weekLabel: {
+      textAlign: "center",
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    grid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      rowGap: 10,
+    },
+    tile: {
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
+    emptyTile: {
+      backgroundColor: colors.emptyTile,
+      borderWidth: 1,
+      borderColor: colors.emptyTileBorder,
+    },
+    todayTile: {
+      borderColor: colors.olive,
+      borderWidth: 2,
+      backgroundColor: colors.todayTile,
+    },
+    futureTile: { opacity: 0.48 },
+    tileNumber: { color: colors.muted, fontSize: 12 },
+    futureNumber: { opacity: 0.32 },
+    tileNumberFilled: {
+      color: colors.muted,
+      textAlign: "center",
+      marginTop: 4,
+      fontSize: 11,
+    },
+    videoDot: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: "34%",
+      color: colors.white,
+      fontSize: 14,
+      textAlign: "center",
+      textShadowColor: "#000",
+      textShadowRadius: 8,
+    },
+    bottomBar: {
+      position: "absolute",
+      alignSelf: "center",
+      bottom: Platform.OS === "web" ? 20 : 16,
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.chrome,
+    },
+    addButton: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cameraBody: {
+      width: 26,
+      height: 19,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: colors.ink,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cameraTop: {
+      position: "absolute",
+      top: -6,
+      width: 10,
+      height: 5,
+      borderTopLeftRadius: 3,
+      borderTopRightRadius: 3,
+      backgroundColor: colors.ink,
+    },
+    cameraLens: {
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+      borderWidth: 2,
+      borderColor: colors.ink,
+    },
+    previewShade: {
+      flex: 1,
+      backgroundColor: "rgba(7,5,4,0.82)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    previewCard: {
+      backgroundColor: colors.card,
+      borderRadius: 30,
+      padding: 18,
+      width: "84%",
+      maxWidth: 350,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    previewDate: {
+      color: colors.ink,
+      fontFamily: type.display,
+      fontSize: 22,
+      fontWeight: "700",
+    },
+    previewMeta: { color: colors.muted, marginTop: 4, fontSize: 12 },
+    previewMedia: {
+      marginTop: 16,
+      borderRadius: 22,
+      overflow: "hidden",
+      alignSelf: "center",
+    },
+    previewCaption: {
+      marginTop: 12,
+      color: colors.ink,
+      fontSize: 13,
+    },
+    yearBackdrop: { flex: 1, backgroundColor: colors.paper },
+    yearPage: {
+      flex: 1,
+      width: "100%",
+      maxWidth: 480,
+      alignSelf: "center",
+      backgroundColor: colors.paper,
+      paddingHorizontal: 22,
+      paddingTop: 20,
+    },
+    yearHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 24,
+    },
+    yearTitle: { fontFamily: type.display, fontSize: 28, color: colors.ink },
+    yearSubtitle: { color: colors.muted, fontSize: 12, marginTop: 5 },
+    yearDone: {
+      minWidth: 54,
+      minHeight: 44,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    close: { color: colors.plum, fontSize: 15, fontWeight: "700" },
+    yearSelector: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 22,
+    },
+    yearStep: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    yearStepText: { color: colors.ink, fontSize: 28, lineHeight: 32 },
+    yearNumber: { color: colors.ink, fontFamily: type.display, fontSize: 30 },
+    yearScroll: { paddingBottom: 28 },
+    yearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    yearMonth: {
+      width: "48%",
+      minHeight: 122,
+      backgroundColor: colors.card,
+      borderRadius: 23,
+      overflow: "hidden",
+      justifyContent: "flex-end",
+    },
+    yearMonthFuture: { opacity: 0.35 },
+    yearVideoOnly: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: "#48413D",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    yearMonthLabel: {
+      paddingHorizontal: 15,
+      paddingVertical: 12,
+      minHeight: 46,
+      backgroundColor: "rgba(20,18,17,0.72)",
+    },
+    yearMonthText: {
+      color: colors.white,
+      fontFamily: type.display,
+      fontSize: 17,
+    },
+    yearMonthCount: {
+      color: colors.white,
+      fontSize: 10,
+      opacity: 0.8,
+      marginTop: 2,
+    },
+  });
