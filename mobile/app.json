@@ -14,8 +14,8 @@
     "android": {
       "package": "com.azatkabulov.memento",
       "adaptiveIcon": {
-        "backgroundColor": "#212121",
-        "foregroundImage": "./assets/icon.png"
+        "backgroundColor": "#4B3026",
+        "foregroundImage": "./assets/adaptive-foreground.png"
       },
       "predictiveBackGestureEnabled": true
     },
@@ -48,7 +48,19 @@
       "expo-notifications",
       "expo-sharing",
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#4B3026",
+          "image": "./assets/splash-mark.png",
+          "imageWidth": 150,
+          "dark": {
+            "backgroundColor": "#4B3026",
+            "image": "./assets/splash-mark.png"
+          }
+        }
+      ]
     ]
   }
 }

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer, type VideoPlayer } from "expo-video";
@@ -18,6 +18,10 @@ export function MomentMedia({
   focused?: boolean;
   playing?: boolean;
 }) {
+  const imageSource = useMemo(
+    () => moment.sample ?? { uri: moment.uri },
+    [moment.sample, moment.uri],
+  );
   if (moment.kind === "video" && moment.uri) {
     return (
       <VideoMedia
@@ -31,7 +35,7 @@ export function MomentMedia({
   }
   return (
     <Image
-      source={moment.sample ?? { uri: moment.uri }}
+      source={imageSource}
       contentFit="cover"
       contentPosition={photoContentPosition(moment)}
       style={{

@@ -44,21 +44,17 @@ export function HoldPreview({
   onClose: () => void;
 }) {
   const styles = useThemedStyles(createStyles);
-  const [date, setDate] = useState(initialDate);
   const dates = useMemo(() => Object.keys(moments).sort(), [moments]);
-  const [position] = useState(() => new Animated.ValueXY());
+  const [activeIndex, setActiveIndex] = useState(() =>
+    Math.max(0, dates.indexOf(initialDate)),
+  );
+  const [trackX] = useState(
+    () => new Animated.Value(-Math.max(0, dates.indexOf(initialDate)) * width),
+  );
+  const [verticalY] = useState(() => new Animated.Value(0));
   const [backdropOpacity] = useState(() => new Animated.Value(0));
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const moving = useRef(false);
-  const pendingDate = useRef<string | null>(null);
-  const previousX = useMemo(
-    () => Animated.add(position.x, -width),
-    [position, width],
-  );
-  const nextX = useMemo(
-    () => Animated.add(position.x, width),
-    [position, width],
-  );
   const touch = useRef({
     x: 0,
     y: 0,
@@ -71,14 +67,10 @@ export function HoldPreview({
   const mediaSize = Math.min(width - 100, 280);
   const cardWidth = Math.min(width - 44, 350);
 
-  // Rebase the same visual position when the arriving card becomes current.
-  // A layout effect keeps the completed slide from briefly showing the old card.
   useLayoutEffect(() => {
-    if (pendingDate.current !== date) return;
-    position.setValue({ x: 0, y: 0 });
-    pendingDate.current = null;
+    // Keep the absolute track position: the arriving keyed card stays mounted.
     moving.current = false;
-  }, [date, position]);
+  }, [activeIndex]);
 
   useEffect(() => {
     Animated.parallel([
@@ -100,8 +92,8 @@ export function HoldPreview({
     moving.current = true;
     const duration = reduceMotion ? 0 : animationDuration(velocity);
     Animated.parallel([
-      Animated.timing(position, {
-        toValue: { x: 0, y: direction * height || 22 },
+      Animated.timing(verticalY, {
+        toValue: direction * height || 22,
         duration,
         useNativeDriver: true,
       }),
@@ -120,11 +112,10 @@ export function HoldPreview({
 
   function navigate(direction: -1 | 1, displacement: number, velocity: number) {
     if (moving.current) return;
-    const index = dates.indexOf(date);
-    const target = dates[index + direction];
-    if (!target) {
-      Animated.spring(position, {
-        toValue: { x: 0, y: 0 },
+    const targetIndex = activeIndex + direction;
+    if (!dates[targetIndex]) {
+      Animated.spring(trackX, {
+        toValue: -activeIndex * width,
         speed: 22,
         bounciness: 4,
         useNativeDriver: true,
@@ -132,20 +123,21 @@ export function HoldPreview({
       return;
     }
     if (reduceMotion) {
-      position.setValue({ x: 0, y: 0 });
-      setDate(target);
+      trackX.setValue(-targetIndex * width);
+      verticalY.setValue(0);
+      setActiveIndex(targetIndex);
       return;
     }
     moving.current = true;
-    // Both cards share position.x, so they follow the finger and settle together.
+    // The whole keyed track follows the finger; no image is remounted at handoff.
     Animated.parallel([
-      Animated.timing(position.x, {
-        toValue: -direction * width,
+      Animated.timing(trackX, {
+        toValue: -targetIndex * width,
         duration: slideDuration(width - Math.abs(displacement), velocity),
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(position.y, {
+      Animated.timing(verticalY, {
         toValue: 0,
         duration: slideDuration(width - Math.abs(displacement), velocity),
         useNativeDriver: true,
@@ -155,18 +147,25 @@ export function HoldPreview({
         moving.current = false;
         return;
       }
-      pendingDate.current = target;
-      setDate(target);
+      setActiveIndex(targetIndex);
     });
   }
 
   function settle() {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      speed: 22,
-      bounciness: 4,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.spring(trackX, {
+        toValue: -activeIndex * width,
+        speed: 22,
+        bounciness: 4,
+        useNativeDriver: true,
+      }),
+      Animated.spring(verticalY, {
+        toValue: 0,
+        speed: 22,
+        bounciness: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }
 
   function finishGesture(dx: number, dy: number, vx: number, vy: number) {
@@ -194,13 +193,15 @@ export function HoldPreview({
     );
     return () => subscription.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [activeIndex]);
 
+  const date = dates[activeIndex];
   const current = moments[date];
-  const index = dates.indexOf(date);
-  const previous = moments[dates[index - 1]];
-  const next = moments[dates[index + 1]];
   if (!current) return null;
+  const visibleDates = dates.slice(
+    Math.max(0, activeIndex - 1),
+    activeIndex + 2,
+  );
 
   const cardScale = cardOpacity.interpolate({
     inputRange: [0, 1],
@@ -232,113 +233,83 @@ export function HoldPreview({
         pointerEvents="box-none"
         style={[styles.stage, { height: mediaSize + 155 }]}
       >
-        {previous && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.animatedCard,
-              {
-                width: cardWidth,
-                left: (width - cardWidth) / 2,
-                opacity: cardOpacity,
-                transform: [
-                  { translateX: previousX },
-                  { translateY: position.y },
-                ],
-              },
-            ]}
-          >
-            <PreviewCard moment={previous} mediaSize={mediaSize} />
-          </Animated.View>
-        )}
-        {next && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.animatedCard,
-              {
-                width: cardWidth,
-                left: (width - cardWidth) / 2,
-                opacity: cardOpacity,
-                transform: [{ translateX: nextX }, { translateY: position.y }],
-              },
-            ]}
-          >
-            <PreviewCard moment={next} mediaSize={mediaSize} />
-          </Animated.View>
-        )}
-        <Animated.View
-          onStartShouldSetResponderCapture={() => true}
-          onResponderGrant={(event) => {
-            position.stopAnimation();
-            const { pageX, pageY, timestamp } = event.nativeEvent;
-            touch.current = {
-              x: pageX,
-              y: pageY,
-              lastX: pageX,
-              lastY: pageY,
-              lastTime: timestamp,
-              velocityX: 0,
-              velocityY: 0,
-            };
-          }}
-          onResponderMove={(event) => {
-            if (moving.current) return;
-            const { pageX, pageY, timestamp } = event.nativeEvent;
-            const elapsed = timestamp - touch.current.lastTime;
-            if (elapsed >= 12) {
-              touch.current.velocityX = (pageX - touch.current.lastX) / elapsed;
-              touch.current.velocityY = (pageY - touch.current.lastY) / elapsed;
-              touch.current.lastX = pageX;
-              touch.current.lastY = pageY;
-              touch.current.lastTime = timestamp;
-            }
-            position.setValue({
-              x: pageX - touch.current.x,
-              y: pageY - touch.current.y,
-            });
-          }}
-          onResponderRelease={(event) => {
-            const { pageX, pageY, timestamp } = event.nativeEvent;
-            const elapsed = timestamp - touch.current.lastTime;
-            const recentlyMoving = elapsed < 100;
-            finishGesture(
-              pageX - touch.current.x,
-              pageY - touch.current.y,
-              recentlyMoving ? touch.current.velocityX : 0,
-              recentlyMoving ? touch.current.velocityY : 0,
-            );
-          }}
-          onResponderTerminate={settle}
-          accessibilityLabel={`Preview for ${date}`}
-          accessibilityHint="Swipe left or right for another memory. Swipe up or down to close."
-          accessibilityActions={[
-            { name: "increment", label: "Next memory" },
-            { name: "decrement", label: "Previous memory" },
-            { name: "escape", label: "Close preview" },
-          ]}
-          onAccessibilityAction={(event) => {
-            const action = event.nativeEvent.actionName;
-            if (action === "escape") dismiss(0);
-            if (action === "increment") navigate(1, 0, 0);
-            if (action === "decrement") navigate(-1, 0, 0);
-          }}
-          style={[
-            styles.animatedCard,
-            {
-              width: cardWidth,
-              left: (width - cardWidth) / 2,
-              opacity: cardOpacity,
-              transform: [
-                { translateX: position.x },
-                { translateY: position.y },
-                { scale: cardScale },
-              ],
-            },
-          ]}
-        >
-          <PreviewCard moment={current} mediaSize={mediaSize} />
-        </Animated.View>
+        {visibleDates.map((visibleDate) => {
+          const slideIndex = dates.indexOf(visibleDate);
+          const isActive = slideIndex === activeIndex;
+          return (
+            <PreviewSlide
+              key={visibleDate}
+              moment={moments[visibleDate]}
+              slideIndex={slideIndex}
+              isActive={isActive}
+              mediaSize={mediaSize}
+              cardWidth={cardWidth}
+              screenWidth={width}
+              trackX={trackX}
+              verticalY={verticalY}
+              cardOpacity={cardOpacity}
+              cardScale={cardScale}
+              onStartShouldSetResponderCapture={() =>
+                isActive && !moving.current
+              }
+              onResponderGrant={(event) => {
+                trackX.stopAnimation();
+                verticalY.stopAnimation();
+                const { pageX, pageY, timestamp } = event.nativeEvent;
+                touch.current = {
+                  x: pageX,
+                  y: pageY,
+                  lastX: pageX,
+                  lastY: pageY,
+                  lastTime: timestamp,
+                  velocityX: 0,
+                  velocityY: 0,
+                };
+              }}
+              onResponderMove={(event) => {
+                if (moving.current) return;
+                const { pageX, pageY, timestamp } = event.nativeEvent;
+                const elapsed = timestamp - touch.current.lastTime;
+                if (elapsed >= 12) {
+                  touch.current.velocityX =
+                    (pageX - touch.current.lastX) / elapsed;
+                  touch.current.velocityY =
+                    (pageY - touch.current.lastY) / elapsed;
+                  touch.current.lastX = pageX;
+                  touch.current.lastY = pageY;
+                  touch.current.lastTime = timestamp;
+                }
+                trackX.setValue(-activeIndex * width + pageX - touch.current.x);
+                verticalY.setValue(pageY - touch.current.y);
+              }}
+              onResponderRelease={(event) => {
+                const { pageX, pageY, timestamp } = event.nativeEvent;
+                const elapsed = timestamp - touch.current.lastTime;
+                const recentlyMoving = elapsed < 100;
+                finishGesture(
+                  pageX - touch.current.x,
+                  pageY - touch.current.y,
+                  recentlyMoving ? touch.current.velocityX : 0,
+                  recentlyMoving ? touch.current.velocityY : 0,
+                );
+              }}
+              onResponderTerminate={settle}
+              accessibilityLabel={`Preview for ${visibleDate}`}
+              accessibilityHint="Swipe left or right for another memory. Swipe up or down to close."
+              accessibilityActions={[
+                { name: "increment", label: "Next memory" },
+                { name: "decrement", label: "Previous memory" },
+                { name: "escape", label: "Close preview" },
+              ]}
+              onAccessibilityAction={(event) => {
+                const action = event.nativeEvent.actionName;
+                if (action === "escape") dismiss(0);
+                if (action === "increment") navigate(1, 0, 0);
+                if (action === "decrement") navigate(-1, 0, 0);
+              }}
+            />
+          );
+        })}
       </View>
       <Text style={styles.hint}>
         Swipe to browse · Swipe up or down to close
@@ -347,7 +318,59 @@ export function HoldPreview({
   );
 }
 
-function PreviewCard({
+function PreviewSlide({
+  moment,
+  slideIndex,
+  isActive,
+  mediaSize,
+  cardWidth,
+  screenWidth,
+  trackX,
+  verticalY,
+  cardOpacity,
+  cardScale,
+  ...responderProps
+}: {
+  moment: Moment;
+  slideIndex: number;
+  isActive: boolean;
+  mediaSize: number;
+  cardWidth: number;
+  screenWidth: number;
+  trackX: Animated.Value;
+  verticalY: Animated.Value;
+  cardOpacity: Animated.Value;
+  cardScale: Animated.AnimatedInterpolation<number>;
+} & React.ComponentProps<typeof Animated.View>) {
+  const styles = useThemedStyles(createStyles);
+  const slideX = useMemo(
+    () => Animated.add(trackX, slideIndex * screenWidth),
+    [trackX, slideIndex, screenWidth],
+  );
+  return (
+    <Animated.View
+      {...(isActive ? responderProps : {})}
+      pointerEvents={isActive ? "auto" : "none"}
+      style={[
+        styles.animatedCard,
+        {
+          width: cardWidth,
+          left: (screenWidth - cardWidth) / 2,
+          opacity: cardOpacity,
+          transform: [
+            { translateX: slideX },
+            { translateY: verticalY },
+            { scale: cardScale },
+          ],
+        },
+      ]}
+    >
+      <PreviewCard moment={moment} mediaSize={mediaSize} />
+    </Animated.View>
+  );
+}
+
+const PreviewCard = React.memo(function PreviewCard({
   moment,
   mediaSize,
 }: {
@@ -384,7 +407,7 @@ function PreviewCard({
       </Text>
     </View>
   );
-}
+});
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
