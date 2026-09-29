@@ -69,10 +69,8 @@ function VideoMedia({
   useEffect(() => {
     if (playing) player.play();
     else player.pause();
-    return () => {
-      player.pause();
-    };
-  }, [player, focused, playing]);
+    // useVideoPlayer releases the player on unmount; cleanup must not call it again.
+  }, [player, playing]);
 
   return (
     <View
