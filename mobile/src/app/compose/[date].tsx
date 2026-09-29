@@ -3,16 +3,24 @@ import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Alert,
+  Keyboard,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { MomentMedia } from "../../components/MomentMedia";
 import { PhotoFramer } from "../../components/PhotoFramer";
-import { focalPoint, frameForFocalY } from "../../lib/photoFrame";
+import {
+  focalPoint,
+  frameForFocalY,
+  type FocalPoint,
+} from "../../lib/photoFrame";
 import { diaryDate, momentLabel } from "../../lib/dates";
 import { pickMedia, showPickMediaError } from "../../lib/pickMedia";
 import {
@@ -27,6 +35,8 @@ import { useAuth } from "../../auth/AuthContext";
 export default function Compose() {
   const colors = useThemeColors();
   const styles = useThemedStyles(createStyles);
+  const { width, height } = useWindowDimensions();
+  const cropSize = Math.min(width - 64, height - 220, 340);
   const params = useLocalSearchParams<{
     date: string;
     uri?: string;
@@ -56,6 +66,8 @@ export default function Compose() {
   );
   const [caption, setCaption] = useState(existing?.caption ?? "");
   const [saving, setSaving] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropStart, setCropStart] = useState<FocalPoint | null>(null);
 
   if (!date || date > today)
     return (
@@ -105,6 +117,29 @@ export default function Compose() {
     }
   }
 
+  function openCrop() {
+    if (draft?.kind !== "photo") return;
+    Keyboard.dismiss();
+    setCropStart(focalPoint(draft));
+    setCropOpen(true);
+  }
+
+  function cancelCrop() {
+    if (cropStart)
+      setDraft((current) =>
+        current?.kind === "photo"
+          ? { ...current, focalX: cropStart.x, focalY: cropStart.y }
+          : current,
+      );
+    setCropOpen(false);
+    setCropStart(null);
+  }
+
+  function keepCrop() {
+    setCropOpen(false);
+    setCropStart(null);
+  }
+
   function leave() {
     if (
       draft &&
@@ -144,16 +179,18 @@ export default function Compose() {
         <Text style={styles.date}>{momentLabel(date)}</Text>
         <View style={styles.preview}>
           {draft?.kind === "photo" ? (
-            <PhotoFramer
-              key={draft.uri ?? "sample"}
-              moment={draft}
-              size={270}
-              onChange={(x, y) =>
-                setDraft((current) =>
-                  current ? { ...current, focalX: x, focalY: y } : current,
-                )
-              }
-            />
+            <Pressable
+              onPress={openCrop}
+              accessibilityRole="button"
+              accessibilityLabel="Adjust photo position in calendar"
+              accessibilityHint="Opens a focused photo positioning view"
+              style={styles.adjustTrigger}
+            >
+              <MomentMedia moment={draft} size={270} focused={false} />
+              <View style={styles.adjustLabel} pointerEvents="none">
+                <Text style={styles.adjustLabelText}>Adjust photo</Text>
+              </View>
+            </Pressable>
           ) : draft ? (
             <MomentMedia moment={draft} size={270} focused={false} />
           ) : (
@@ -167,8 +204,8 @@ export default function Compose() {
           <View style={styles.framing}>
             <Text style={styles.fieldLabel}>POSITION IN YOUR CALENDAR</Text>
             <Text style={styles.frameHint}>
-              Drag the photo above to choose what appears in its square. The
-              full photo stays saved.
+              Tap the photo to choose what appears in the calendar. The full
+              photo stays saved.
             </Text>
           </View>
         )}
@@ -233,6 +270,50 @@ export default function Compose() {
           </Text>
         </TouchableOpacity>
       </View>
+      <Modal
+        visible={cropOpen && draft?.kind === "photo"}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={cancelCrop}
+      >
+        <SafeAreaView style={styles.cropBackdrop}>
+          <View style={styles.cropPanel}>
+            <View style={styles.cropHeader}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={cancelCrop}
+                style={styles.cropAction}
+              >
+                <Text style={styles.cropCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.cropTitle}>Position photo</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={keepCrop}
+                style={styles.cropAction}
+              >
+                <Text style={styles.cropDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {draft?.kind === "photo" && (
+              <PhotoFramer
+                key={draft.uri ?? "sample"}
+                moment={draft}
+                size={cropSize}
+                onChange={(x, y) =>
+                  setDraft((current) =>
+                    current ? { ...current, focalX: x, focalY: y } : current,
+                  )
+                }
+              />
+            )}
+            <Text style={styles.cropHint}>
+              Drag the photo to choose its calendar crop.
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -272,6 +353,64 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.card,
       alignItems: "center",
       justifyContent: "center",
+    },
+    adjustTrigger: {
+      width: 270,
+      height: 270,
+      borderRadius: 20,
+      overflow: "hidden",
+    },
+    adjustLabel: {
+      position: "absolute",
+      bottom: 12,
+      alignSelf: "center",
+      borderRadius: 16,
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      backgroundColor: "rgba(23,18,15,0.8)",
+    },
+    adjustLabelText: { color: "#F2EADB", fontSize: 12, fontWeight: "700" },
+    cropBackdrop: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      backgroundColor: "rgba(12,9,7,0.8)",
+    },
+    cropPanel: {
+      width: "100%",
+      maxWidth: 430,
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingBottom: 24,
+      borderRadius: 28,
+      backgroundColor: colors.card,
+    },
+    cropHeader: {
+      width: "100%",
+      height: 72,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    cropAction: {
+      minWidth: 56,
+      minHeight: 48,
+      justifyContent: "center",
+    },
+    cropCancelText: { color: colors.muted, fontSize: 14 },
+    cropDoneText: {
+      color: colors.olive,
+      fontSize: 14,
+      fontWeight: "700",
+      textAlign: "right",
+    },
+    cropTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
+    cropHint: {
+      color: colors.muted,
+      fontSize: 13,
+      textAlign: "center",
+      marginTop: 20,
     },
     emptyPreview: { alignItems: "center" },
     emptyGlyph: { fontSize: 48, color: colors.blush },

@@ -18,6 +18,6 @@ The [Figma Make mockup](https://www.figma.com/make/YR4qJTCzTcbqfvr03twAsb/Mement
 4. **Settings:** Dark/light appearance, reminder, cloud backup, export, account, playback, and help are grouped in rounded cards. The design's app-lock and account-deletion controls are omitted until those features work. Cloud backup copy avoids promising encryption beyond the service's current implementation.
 5. **Hold preview:** A hold opens a persistent rounded card over a blurred calendar. Tap outside or swipe vertically to dismiss; horizontal swipes move between saved moments with paired slide animations. Tap remains the primary accessible way to open a moment.
 
-In the moment editor, drag a photo inside its square preview to choose the calendar crop. The original media remains intact; the selected focal point is stored locally, in archives, and in cloud backups after the framing migration.
+In the moment editor, tap the photo to open a focused crop sheet, then drag it to choose the calendar crop. The editor page scrolls normally outside the sheet. The original media remains intact; the selected focal point is stored locally, in archives, and in cloud backups after the framing migration.
 
 The mockup uses illustrative memories. Actual diary photos and video posters take their place in the app, preserving the owner's requirement that images be legible directly in the calendar. The older [matte album concept](design/matte-album-concept.png) is superseded; it never introduced a separate album screen.
