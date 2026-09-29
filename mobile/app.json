@@ -17,10 +17,20 @@
         "backgroundColor": "#4B3026",
         "foregroundImage": "./assets/adaptive-foreground.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/icon.png",
+      "output": "single",
+      "name": "Memento — Daily Photo Diary",
+      "shortName": "Memento",
+      "themeColor": "#4B3026",
+      "backgroundColor": "#4B3026",
+      "description": "A private visual diary for the moments that make up your life."
     },
     "plugins": [
       "expo-router",
@@ -61,6 +71,13 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8e27b8de-c18e-4bdb-adf4-f0b5af751a6b"
+      }
+    },
+    "owner": "azatkabulov"
   }
 }

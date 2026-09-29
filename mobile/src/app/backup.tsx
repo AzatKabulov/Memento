@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -38,17 +39,22 @@ export default function BackupScreen() {
   const previewRequest = useRef(0);
   const previewUri = useRef<string | null>(null);
   const summary = backup.summary;
-  const status = !backup.available
-    ? "On this phone"
-    : backup.busy
-      ? "Checking backup"
-      : summary?.conflicts.length || summary?.needsAttention || backup.error
-        ? "Needs attention"
-        : summary?.pending
-          ? "Waiting to back up"
-          : summary?.lastSynced
-            ? "Backed up"
-            : "On this phone";
+  const status =
+    Platform.OS === "web" && backup.available
+      ? backup.busy
+        ? "Refreshing your diary"
+        : "Saved to your account"
+      : !backup.available
+        ? "On this phone"
+        : backup.busy
+          ? "Checking backup"
+          : summary?.conflicts.length || summary?.needsAttention || backup.error
+            ? "Needs attention"
+            : summary?.pending
+              ? "Waiting to back up"
+              : summary?.lastSynced
+                ? "Backed up"
+                : "On this phone";
 
   const closeCompare = () => {
     previewRequest.current += 1;
@@ -124,16 +130,18 @@ export default function BackupScreen() {
         <Text style={styles.eyebrow}>KEEP YOUR MEMORIES</Text>
         <Text style={styles.title}>Backup & restore</Text>
         <Text style={styles.intro}>
-          Your phone keeps the diary first. When connected, Memento makes a
-          private copy for your account.
+          {Platform.OS === "web"
+            ? "Moments save directly to your private account as you add them."
+            : "Your phone keeps the diary first. When connected, Memento makes a private copy for your account."}
         </Text>
         <View style={styles.statusCard}>
           <Text style={styles.cardLabel}>CURRENT STATE</Text>
           <Text style={styles.status}>{status}</Text>
           {!backup.available ? (
             <Text style={styles.detail}>
-              This preview has sample memories only. Cloud backup is available
-              in the iPhone and Android app after sign-in.
+              {Platform.OS === "web"
+                ? "Sign in to view and update your private online diary."
+                : "Cloud backup is available after signing in to your Memento account."}
             </Text>
           ) : (
             <>
@@ -144,9 +152,11 @@ export default function BackupScreen() {
                     ? "Waiting for Wi-Fi. Your moments stay on this phone."
                     : backup.connection === "offline"
                       ? "Waiting for a connection. Your moments stay on this phone."
-                      : summary?.pending
-                        ? `${summary.pending} ${summary.pending === 1 ? "change" : "changes"} waiting.`
-                        : "Your account’s cloud copy was checked."}
+                      : Platform.OS === "web"
+                        ? "Your moments are stored privately in your account."
+                        : summary?.pending
+                          ? `${summary.pending} ${summary.pending === 1 ? "change" : "changes"} waiting.`
+                          : "Your account’s cloud copy was checked."}
               </Text>
               {backup.fraction != null && (
                 <Text style={styles.progress}>
@@ -165,20 +175,22 @@ export default function BackupScreen() {
         {!!backup.error && <Text style={styles.error}>{backup.error}</Text>}
         {backup.available && (
           <>
-            <View style={styles.settingRow}>
-              <View style={styles.settingCopy}>
-                <Text style={styles.settingTitle}>Wi-Fi only</Text>
-                <Text style={styles.settingHint}>
-                  Wait for Wi-Fi before uploading or restoring media.
-                </Text>
+            {Platform.OS !== "web" && (
+              <View style={styles.settingRow}>
+                <View style={styles.settingCopy}>
+                  <Text style={styles.settingTitle}>Wi-Fi only</Text>
+                  <Text style={styles.settingHint}>
+                    Wait for Wi-Fi before uploading or restoring media.
+                  </Text>
+                </View>
+                <Switch
+                  value={summary?.wifiOnly ?? true}
+                  onValueChange={(value) => void backup.setWifiOnly(value)}
+                  accessibilityLabel="Wi-Fi only backup"
+                  trackColor={{ true: colors.olive, false: colors.line }}
+                />
               </View>
-              <Switch
-                value={summary?.wifiOnly ?? true}
-                onValueChange={(value) => void backup.setWifiOnly(value)}
-                accessibilityLabel="Wi-Fi only backup"
-                trackColor={{ true: colors.olive, false: colors.line }}
-              />
-            </View>
+            )}
             <TouchableOpacity
               accessibilityRole="button"
               disabled={backup.busy}
@@ -186,7 +198,13 @@ export default function BackupScreen() {
               style={[styles.syncButton, backup.busy && styles.disabled]}
             >
               <Text style={styles.syncText}>
-                {backup.busy ? "Syncing…" : "Sync now"}
+                {backup.busy
+                  ? Platform.OS === "web"
+                    ? "Refreshing…"
+                    : "Syncing…"
+                  : Platform.OS === "web"
+                    ? "Refresh diary"
+                    : "Sync now"}
               </Text>
             </TouchableOpacity>
             {!!summary?.conflicts.length && (

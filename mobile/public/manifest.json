@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Memento — Daily Photo Diary",
+  "short_name": "Memento",
+  "description": "A private visual diary for the moments that make up your life.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#4B3026",
+  "theme_color": "#4B3026",
+  "icons": [
+    {
+      "src": "/memento-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

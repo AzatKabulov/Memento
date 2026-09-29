@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import * as Linking from "expo-linking";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import { authConfigured, supabase } from "./client";
 
 type AuthState = {
@@ -25,6 +25,12 @@ const AuthContext = createContext<AuthState | null>(null);
 function requireClient() {
   if (!supabase) throw new Error("Account service is not configured yet.");
   return supabase;
+}
+
+function authRedirect(path: string) {
+  if (Platform.OS === "web" && typeof window !== "undefined")
+    return new URL(path, window.location.origin).toString();
+  return Linking.createURL(path.replace(/^\/+/, ""));
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -56,19 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setEmail(session?.user.email ?? null);
       }
     });
-    if (AppState.currentState === "active") client.auth.startAutoRefresh();
-    const appStateSubscription = AppState.addEventListener(
-      "change",
-      (state) => {
-        if (state === "active") client.auth.startAutoRefresh();
-        else client.auth.stopAutoRefresh();
-      },
-    );
+    if (Platform.OS !== "web") {
+      if (AppState.currentState === "active") client.auth.startAutoRefresh();
+    }
+    const appStateSubscription =
+      Platform.OS === "web"
+        ? null
+        : AppState.addEventListener("change", (state) => {
+            if (state === "active") client.auth.startAutoRefresh();
+            else client.auth.stopAutoRefresh();
+          });
     return () => {
       active = false;
       subscription.unsubscribe();
-      appStateSubscription.remove();
-      client.auth.stopAutoRefresh();
+      appStateSubscription?.remove();
+      if (Platform.OS !== "web") client.auth.stopAutoRefresh();
     };
   }, []);
 
@@ -89,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data, error } = await requireClient().auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: Linking.createURL("auth/callback") },
+          options: { emailRedirectTo: authRedirect("/auth/callback") },
         });
         if (error) throw error;
         return !data.session;
@@ -98,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error } = await requireClient().auth.resetPasswordForEmail(
           email,
           {
-            redirectTo: Linking.createURL("auth/reset"),
+            redirectTo: authRedirect("/auth/reset"),
           },
         );
         if (error) throw error;

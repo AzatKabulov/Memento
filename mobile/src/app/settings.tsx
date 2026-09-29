@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Alert,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -121,7 +122,11 @@ export default function Settings() {
             <View style={styles.switchSlot}>
               <Switch
                 accessibilityLabel="Daily reminder"
-                disabled={!settings.available || !settings.ready}
+                disabled={
+                  Platform.OS === "web" ||
+                  !settings.available ||
+                  !settings.ready
+                }
                 value={settings.reminderEnabled}
                 onValueChange={(value) =>
                   update(settings.setReminderEnabled(value))
@@ -246,10 +251,10 @@ export default function Settings() {
           />
         </View>
 
-        {!settings.available && (
+        {Platform.OS === "web" && (
           <Text style={styles.signOutNote}>
-            This browser preview uses sample memories. Device settings become
-            available after sign-in in the mobile app.
+            Daily reminders need notification support. You can still capture,
+            browse, and safely keep your moments in your account here.
           </Text>
         )}
       </ScrollView>

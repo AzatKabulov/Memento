@@ -27,6 +27,10 @@ export type Moment = {
   frame?: LegacyFrame;
   focalX?: number;
   focalY?: number;
+  /** Private Supabase object path and version, used by the web diary. */
+  cloudPath?: string;
+  cloudRevision?: number;
+  cloudBytes?: number;
 };
 
 type DiaryState = {
