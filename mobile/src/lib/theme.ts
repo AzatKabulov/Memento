@@ -3,20 +3,20 @@ import { useSettings } from "../settings/SettingsContext";
 
 export const palettes = {
   dark: {
-    paper: "#100D0C",
-    card: "#201A18",
-    ink: "#F6EDE0",
-    muted: "#A89A8D",
-    line: "#392F29",
-    plum: "#F6EDE0",
+    paper: "#17120F",
+    card: "#2A211B",
+    ink: "#F2EADB",
+    muted: "#AA9B89",
+    line: "#3D3028",
+    plum: "#F2EADB",
     blush: "#49342B",
-    olive: "#D5A063",
+    olive: "#E2BF8A",
     white: "#FFFFFF",
     buttonInk: "#211916",
-    emptyTile: "#201A18",
-    emptyTileBorder: "#3B312C",
+    emptyTile: "#1C1612",
+    emptyTileBorder: "#352920",
     todayTile: "#38291F",
-    chrome: "#2A201B",
+    chrome: "#261D18",
     iconSurface: "#2D2421",
     warning: "#EAAFA6",
   },
@@ -69,5 +69,9 @@ export function useThemedStyles<T>(
 }
 
 export const type = {
-  display: "Georgia",
+  display: "InstrumentSerif_400Regular",
+  displayItalic: "InstrumentSerif_400Regular_Italic",
+  body: "DMSans_400Regular",
+  bodyMedium: "DMSans_500Medium",
+  bodySemibold: "DMSans_600SemiBold",
 };

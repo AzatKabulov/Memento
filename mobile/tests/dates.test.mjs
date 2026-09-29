@@ -26,6 +26,14 @@ test("Sunday-start and Monday-start months align to Monday-first headings", () =
   assert.equal(diaryDate(new Date(2026, 5, 1)), monday[0]);
 });
 
+test("calendar can align dates to Sunday-first headings", () => {
+  const cells = calendarCells(2025, 8, 0);
+  assert.equal(cells[0], null);
+  assert.equal(cells[1], "2025-09-01");
+  assert.equal(cells[7], "2025-09-07");
+  assert.equal(cells.length, 35);
+});
+
 test("diary dates reject impossible days without normalizing them", () => {
   assert.equal(isValidDiaryDate("2024-02-29"), true);
   assert.equal(isValidDiaryDate("2023-02-29"), false);

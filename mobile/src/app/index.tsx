@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Image } from "expo-image";
 import { Redirect, router, useFocusEffect } from "expo-router";
-import { BlurTargetView, BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Modal,
@@ -23,6 +23,12 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../components/MomentMedia";
+import {
+  CameraIcon,
+  ChevronIcon,
+  PlayIcon,
+  SettingsIcon,
+} from "../components/DiaryIcons";
 import { useSettings } from "../settings/SettingsContext";
 import { VideoPoster } from "../components/VideoPoster";
 import {
@@ -32,14 +38,20 @@ import {
   momentLabel,
   monthLabel,
 } from "../lib/dates";
-import { useThemedStyles, type ThemeColors, type } from "../lib/theme";
+import {
+  useThemeColors,
+  useThemedStyles,
+  type ThemeColors,
+  type,
+} from "../lib/theme";
 import { pickMedia, showPickMediaError } from "../lib/pickMedia";
 import { useDiary, type Moment } from "../state/DiaryContext";
 
-const weekdays = ["M", "T", "W", "T", "F", "S", "S"];
+const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 export default function CalendarScreen() {
   const styles = useThemedStyles(createStyles);
+  const colors = useThemeColors();
   const { entered, ready, storageError, retryLoad, moments } = useDiary();
   const { autoplay, theme } = useSettings();
   const today = diaryDate(new Date());
@@ -61,19 +73,24 @@ export default function CalendarScreen() {
   const [scrollHeight, setScrollHeight] = useState(0);
   const [gridY, setGridY] = useState(0);
   const scrollIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const blurTargetRef = useRef<View | null>(null);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const compact = height < 700;
   const viewportWidth = Math.min(width, 480) - (Platform.OS === "web" ? 16 : 0);
-  const tile = Math.floor((viewportWidth - 36 - 6 * 5) / 7);
+  const narrow = viewportWidth < 360;
+  const tile = Math.floor((viewportWidth - 48 - 6 * 5) / 7);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
-  const cells = calendarCells(year, month);
+  const cells = calendarCells(year, month, 0);
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const monthCount = Object.keys(moments).filter((date) =>
+    date.startsWith(monthKey),
+  ).length;
   const visibleRows = new Set(
     cells
       .map((_, index) => Math.floor(index / 7))
       .filter((row) => {
         if (!scrollHeight) return true;
-        const top = gridY + row * (tile + 36);
+        const top = gridY + row * (tile + 11);
         return (
           top + tile >= scrollY - tile && top <= scrollY + scrollHeight + tile
         );
@@ -189,7 +206,16 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView style={styles.page}>
-      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
+      <LinearGradient
+        colors={
+          theme === "dark"
+            ? (["#1B1511", colors.paper, "#1C1511"] as const)
+            : ([colors.paper, "#F7F3ED", "#F2EADF"] as const)
+        }
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           onLayout={(event) => setScrollHeight(event.nativeEvent.layout.height)}
@@ -201,18 +227,24 @@ export default function CalendarScreen() {
           onMomentumScrollEnd={resumeAfterScroll}
         >
           <View style={styles.topline}>
-            <Text style={styles.brand}>MEMENTO</Text>
+            <View style={styles.brandLockup}>
+              <View style={styles.brandMark}>
+                <Text style={styles.brandMarkText}>M</Text>
+              </View>
+              <Text style={styles.brand}>Memento</Text>
+            </View>
             <TouchableOpacity
               accessibilityLabel="Settings"
               accessibilityRole="button"
               onPress={() => router.push("/settings")}
               style={styles.settings}
             >
-              <Text style={styles.settingsText}>•••</Text>
+              <SettingsIcon color={colors.muted} />
             </TouchableOpacity>
           </View>
           <View style={styles.headingRow}>
             <View style={styles.headingContent}>
+              <Text style={styles.eyebrow}>YOUR DAYS, KEPT CLOSE</Text>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Choose month and year"
@@ -220,22 +252,23 @@ export default function CalendarScreen() {
                   setSelectedYear(year);
                   setYearOpen(true);
                 }}
-                style={styles.monthPicker}
+                style={[styles.monthPicker, narrow && styles.monthPickerNarrow]}
               >
                 <Text
                   numberOfLines={1}
                   adjustsFontSizeToFit
-                  minimumFontScale={0.76}
-                  style={[
-                    styles.monthTitle,
-                    { fontSize: viewportWidth < 360 ? 29 : 39 },
-                  ]}
+                  minimumFontScale={0.68}
+                  style={[styles.monthTitle, narrow && styles.monthTitleNarrow]}
                 >
                   {new Intl.DateTimeFormat("en", { month: "long" }).format(
                     visibleMonth,
                   )}
                 </Text>
-                <Text style={styles.yearText}>{year}</Text>
+                <Text
+                  style={[styles.yearText, narrow && styles.yearTextNarrow]}
+                >
+                  {year}
+                </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.monthNav}>
@@ -245,8 +278,9 @@ export default function CalendarScreen() {
                 onPress={() => changeMonth(-1)}
                 style={styles.arrow}
               >
-                <Text style={styles.arrowText}>‹</Text>
+                <ChevronIcon color={colors.muted} direction="left" />
               </TouchableOpacity>
+              <View style={styles.arrowDivider} />
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Next month"
@@ -262,7 +296,7 @@ export default function CalendarScreen() {
                     styles.arrowDisabled,
                 ]}
               >
-                <Text style={styles.arrowText}>›</Text>
+                <ChevronIcon color={colors.muted} direction="right" />
               </TouchableOpacity>
             </View>
           </View>
@@ -308,38 +342,43 @@ export default function CalendarScreen() {
               ) : (
                 <View
                   key={`empty-${index}`}
-                  style={{ width: tile, height: tile + 26 }}
+                  style={{ width: tile, height: tile }}
                 />
               ),
             )}
           </View>
+          {!compact && (
+            <Text style={styles.monthCount}>
+              {`${monthCount} ${monthCount === 1 ? "moment" : "moments"}, kept only for you`}
+            </Text>
+          )}
         </ScrollView>
-      </BlurTargetView>
-      <BlurView
-        blurTarget={blurTargetRef}
-        blurMethod="dimezisBlurViewSdk31Plus"
-        intensity={65}
-        tint={
-          theme === "light"
-            ? "systemThinMaterialLight"
-            : "systemThinMaterialDark"
-        }
-        style={styles.bottomBar}
-      >
+      </View>
+      <View style={[styles.bottomBar, compact && styles.bottomBarCompact]}>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel={
             moments[today] ? "View today's moment" : "Capture today's moment"
           }
-          style={styles.addButton}
+          style={[styles.addButton, compact && styles.addButtonCompact]}
           onPress={() => openDate(today)}
         >
-          <View style={styles.cameraBody}>
-            <View style={styles.cameraTop} />
-            <View style={styles.cameraLens} />
-          </View>
+          <LinearGradient
+            colors={
+              theme === "dark"
+                ? (["#EDCFA1", "#B48758", "#674B35"] as const)
+                : (["#BD8B58", "#94643A", "#765035"] as const)
+            }
+            style={[styles.captureMetal, compact && styles.captureMetalCompact]}
+          >
+            <View
+              style={[styles.captureFace, compact && styles.captureFaceCompact]}
+            >
+              <CameraIcon color={theme === "dark" ? colors.ink : "#FFF4E4"} />
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
-      </BlurView>
+      </View>
       <Modal
         visible={!!preview}
         transparent
@@ -535,12 +574,17 @@ function DateTile({
       onLongPress={moment ? onHold : undefined}
       onPressOut={onRelease}
       delayLongPress={300}
-      style={{ width: size, height: size + 26, alignItems: "center" }}
+      hitSlop={3}
+      style={{ width: size, height: size, alignItems: "center" }}
     >
       <View
         style={[
           styles.tile,
-          { width: size, height: size },
+          {
+            width: size,
+            height: size,
+            borderRadius: moment?.kind === "video" ? size / 2 : 16,
+          },
           !moment && styles.emptyTile,
           !moment && date === today && styles.todayTile,
           !moment && future && styles.futureTile,
@@ -565,7 +609,25 @@ function DateTile({
             ) : (
               <VideoPoster uri={moment.uri} size={size} visible={visible} />
             )}
-            {moment.kind === "video" && <Text style={styles.videoDot}>▶</Text>}
+            <LinearGradient
+              pointerEvents="none"
+              colors={["transparent", "rgba(12, 8, 5, 0.65)"]}
+              style={styles.photoShade}
+            />
+            <Text
+              maxFontSizeMultiplier={1.2}
+              style={[
+                styles.tileNumberFilled,
+                moment.kind === "video" && styles.videoNumber,
+              ]}
+            >
+              {day}
+            </Text>
+            {moment.kind === "video" && (
+              <View style={styles.videoBadge}>
+                <PlayIcon color="#FFF4E4" />
+              </View>
+            )}
           </>
         ) : (
           <Text style={[styles.tileNumber, future && styles.futureNumber]}>
@@ -573,11 +635,6 @@ function DateTile({
           </Text>
         )}
       </View>
-      {moment && (
-        <Text maxFontSizeMultiplier={1.2} style={styles.tileNumberFilled}>
-          {day}
-        </Text>
-      )}
     </Pressable>
   );
 }
@@ -603,90 +660,147 @@ const createStyles = (colors: ThemeColors) =>
     },
     retryText: { color: colors.ink, fontWeight: "700" },
     scroll: {
-      paddingHorizontal: 18,
-      paddingTop: 12,
-      paddingBottom: 120,
+      paddingHorizontal: 24,
+      paddingTop: 19,
+      paddingBottom: 112,
       minHeight: "100%",
     },
     topline: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+      height: 44,
+    },
+    brandLockup: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    brandMark: {
+      width: 30,
+      height: 30,
+      borderRadius: 11,
+      borderWidth: 1,
+      borderColor: "rgba(226,191,138,0.42)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    brandMarkText: {
+      fontFamily: type.display,
+      fontSize: 19,
+      lineHeight: 24,
+      color: colors.olive,
     },
     brand: {
-      color: colors.olive,
-      fontSize: 13,
-      fontWeight: "800",
-      letterSpacing: 2.1,
+      color: colors.ink,
+      fontFamily: type.display,
+      fontSize: 20,
+      lineHeight: 26,
     },
     settings: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.card,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.chrome,
       borderWidth: 1,
       borderColor: colors.line,
       alignItems: "center",
       justifyContent: "center",
     },
-    settingsText: { fontSize: 14, color: colors.ink, marginTop: -7 },
     headingRow: {
-      marginTop: 2,
+      marginTop: 44,
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-end",
       justifyContent: "space-between",
     },
     headingContent: { flex: 1, minWidth: 0 },
-    monthPicker: { minHeight: 98, justifyContent: "center" },
+    eyebrow: {
+      color: colors.muted,
+      fontFamily: type.bodySemibold,
+      fontSize: 9,
+      letterSpacing: 1.6,
+      marginBottom: 5,
+    },
+    monthPicker: {
+      minHeight: 58,
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 9,
+    },
+    monthPickerNarrow: {
+      flexDirection: "column",
+      alignItems: "flex-start",
+      gap: 0,
+    },
     monthTitle: {
       fontFamily: type.display,
       color: colors.ink,
-      fontSize: 39,
-      fontWeight: "700",
-      letterSpacing: -1.3,
+      fontSize: 58,
+      lineHeight: 64,
+      letterSpacing: -2,
+      flexShrink: 1,
     },
-    yearText: { color: colors.muted, fontSize: 16, marginTop: 1 },
+    monthTitleNarrow: {
+      fontSize: 45,
+      lineHeight: 50,
+      flexShrink: 0,
+    },
+    yearText: {
+      color: colors.olive,
+      fontFamily: type.bodyMedium,
+      fontSize: 11,
+      letterSpacing: 0.9,
+      marginBottom: 10,
+    },
+    yearTextNarrow: {
+      marginBottom: 0,
+      marginTop: -2,
+    },
     monthNav: {
       flexDirection: "row",
-      justifyContent: "flex-end",
       alignItems: "center",
-      gap: 8,
-    },
-    arrow: {
-      width: 42,
       height: 42,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 21,
+      borderRadius: 24,
       borderWidth: 1,
       borderColor: colors.line,
-      backgroundColor: colors.card,
+      backgroundColor: colors.chrome,
+      paddingHorizontal: 3,
+      marginBottom: 18,
     },
-    arrowText: {
-      color: colors.ink,
-      fontSize: 28,
-      lineHeight: 30,
-      marginTop: -4,
+    arrow: {
+      width: 36,
+      height: 38,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 18,
+    },
+    arrowDivider: {
+      width: 1,
+      height: 15,
+      backgroundColor: colors.line,
     },
     arrowDisabled: { opacity: 0.35 },
     disabledText: { opacity: 0.35 },
     weekRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      marginTop: 22,
-      marginBottom: 18,
+      marginTop: 30,
+      paddingBottom: 10,
+      borderBottomWidth: 1,
+      borderColor: colors.line,
     },
     weekLabel: {
       textAlign: "center",
       color: colors.muted,
-      fontSize: 11,
-      fontWeight: "700",
+      fontFamily: type.bodySemibold,
+      fontSize: 9,
+      letterSpacing: 0.5,
     },
     grid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      justifyContent: "space-between",
-      rowGap: 10,
+      marginTop: 12,
+      rowGap: 11,
     },
     tile: {
       borderRadius: 16,
@@ -701,72 +815,120 @@ const createStyles = (colors: ThemeColors) =>
     },
     todayTile: {
       borderColor: colors.olive,
-      borderWidth: 2,
+      borderWidth: 1.5,
       backgroundColor: colors.todayTile,
     },
-    futureTile: { opacity: 0.48 },
-    tileNumber: { color: colors.muted, fontSize: 12 },
-    futureNumber: { opacity: 0.32 },
-    tileNumberFilled: {
+    futureTile: { opacity: 0.33 },
+    tileNumber: {
       color: colors.muted,
-      textAlign: "center",
-      marginTop: 4,
+      fontFamily: type.body,
       fontSize: 11,
     },
-    videoDot: {
+    futureNumber: { opacity: 0.32 },
+    tileNumberFilled: {
+      color: "#FFF4E4",
+      fontFamily: type.bodySemibold,
+      position: "absolute",
+      left: 7,
+      bottom: 5,
+      fontSize: 10,
+      textShadowColor: "rgba(0,0,0,0.5)",
+      textShadowRadius: 3,
+    },
+    videoNumber: {
+      left: 0,
+      right: 0,
+      top: 6,
+      bottom: undefined,
+      textAlign: "center",
+    },
+    photoShade: {
       position: "absolute",
       left: 0,
       right: 0,
-      top: "34%",
-      color: colors.white,
-      fontSize: 14,
+      bottom: 0,
+      height: "55%",
+    },
+    videoBadge: {
+      position: "absolute",
+      width: 17,
+      height: 17,
+      borderRadius: 9,
+      right: 5,
+      bottom: 5,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(23,18,15,0.72)",
+      borderWidth: 1,
+      borderColor: "rgba(242,234,219,0.26)",
+    },
+    monthCount: {
+      marginTop: 20,
       textAlign: "center",
-      textShadowColor: "#000",
-      textShadowRadius: 8,
+      color: colors.muted,
+      fontFamily: type.displayItalic,
+      fontSize: 15,
     },
     bottomBar: {
       position: "absolute",
       alignSelf: "center",
-      bottom: Platform.OS === "web" ? 20 : 16,
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: colors.line,
+      bottom: Platform.OS === "web" ? 24 : 16,
+      width: 76,
+      height: 76,
+      borderRadius: 38,
       backgroundColor: colors.chrome,
+      shadowColor: "#000000",
+      shadowOpacity: 0.4,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 16 },
+      elevation: 10,
+    },
+    bottomBarCompact: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      bottom: 12,
     },
     addButton: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    addButtonCompact: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+    },
+    captureMetal: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      borderWidth: 1.5,
+      borderColor: "rgba(255,239,212,0.35)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    captureMetalCompact: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+    },
+    captureFace: {
       width: 64,
       height: 64,
       borderRadius: 32,
+      backgroundColor: "#2A2019",
+      borderWidth: 1,
+      borderColor: "rgba(255,244,226,0.16)",
       alignItems: "center",
       justifyContent: "center",
     },
-    cameraBody: {
-      width: 26,
-      height: 19,
-      borderRadius: 4,
-      borderWidth: 2,
-      borderColor: colors.ink,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    cameraTop: {
-      position: "absolute",
-      top: -6,
-      width: 10,
-      height: 5,
-      borderTopLeftRadius: 3,
-      borderTopRightRadius: 3,
-      backgroundColor: colors.ink,
-    },
-    cameraLens: {
-      width: 9,
-      height: 9,
-      borderRadius: 5,
-      borderWidth: 2,
-      borderColor: colors.ink,
+    captureFaceCompact: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
     },
     previewShade: {
       flex: 1,

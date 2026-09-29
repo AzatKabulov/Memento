@@ -45,9 +45,13 @@ export function momentLabel(value: string): string {
   }).format(dateFromDiary(value));
 }
 
-export function calendarCells(year: number, month: number): (string | null)[] {
+export function calendarCells(
+  year: number,
+  month: number,
+  weekStartsOn: 0 | 1 = 1,
+): (string | null)[] {
   const count = new Date(year, month + 1, 0).getDate();
-  const start = (new Date(year, month, 1).getDay() + 6) % 7;
+  const start = (new Date(year, month, 1).getDay() + 7 - weekStartsOn) % 7;
   const trailing = (7 - ((start + count) % 7)) % 7;
   return [
     ...Array(start).fill(null),
