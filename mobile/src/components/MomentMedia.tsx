@@ -22,6 +22,10 @@ export function MomentMedia({
     () => moment.sample ?? { uri: moment.uri },
     [moment.sample, moment.uri],
   );
+  const previewSource = useMemo(
+    () => (moment.thumbnailUri ? { uri: moment.thumbnailUri } : undefined),
+    [moment.thumbnailUri],
+  );
   if (moment.kind === "video" && moment.uri) {
     return (
       <VideoMedia
@@ -36,6 +40,10 @@ export function MomentMedia({
   return (
     <Image
       source={imageSource}
+      placeholder={previewSource}
+      placeholderContentFit="cover"
+      transition={140}
+      cachePolicy="memory-disk"
       contentFit="cover"
       contentPosition={photoContentPosition(moment)}
       style={{

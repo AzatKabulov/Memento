@@ -13,6 +13,7 @@ import type {
   RemoteMoment,
 } from "../backup/types";
 import { focalPoint } from "../lib/photoFrame";
+import { createPhotoThumbnail } from "./PhotoThumbnail.native";
 
 export async function localSyncIndex(ownerId: string) {
   const db = await database;
@@ -268,7 +269,9 @@ export async function applyCloudCopy(
 ) {
   const db = await database;
   let stored: File | null = null;
+  let thumbnail: File | null = null;
   let replacedPath: string | null = null;
+  let replacedThumbnailPath: string | null = null;
   let applied = false;
   if (!remote.deleted_at) {
     if (
@@ -285,6 +288,13 @@ export async function applyCloudCopy(
       `${randomUUID()}.${fileExtension(remote.media_path, remote.kind)}`,
     );
     downloaded.move(stored);
+    if (remote.kind === "photo") {
+      const preview = new File(
+        ownerDirectory(ownerId),
+        `${stored.name}.thumb.jpg`,
+      );
+      if (await createPhotoThumbnail(stored.uri, preview)) thumbnail = preview;
+    }
   }
   try {
     await db.withExclusiveTransactionAsync(async (tx) => {
@@ -292,10 +302,11 @@ export async function applyCloudCopy(
         id: string;
         media_id: string;
         path: string;
+        thumbnail_path: string | null;
         cloud_revision: number;
         pending: number;
       }>(
-        `SELECT e.id, e.media_id, m.path, e.cloud_revision,
+        `SELECT e.id, e.media_id, m.path, m.thumbnail_path, e.cloud_revision,
           (SELECT count(*) FROM pending_operations p JOIN entries changed ON changed.id = p.entry_id
             WHERE p.owner_id = e.owner_id AND changed.diary_date = e.diary_date) AS pending
          FROM entries e JOIN media m ON m.id = e.media_id
@@ -327,16 +338,20 @@ export async function applyCloudCopy(
             ownerId,
           );
           replacedPath = mediaUri(ownerId, existing.path);
+          replacedThumbnailPath = existing.thumbnail_path
+            ? mediaUri(ownerId, existing.thumbnail_path)
+            : null;
         }
       } else if (stored && remote.kind) {
         const mediaId = randomUUID();
         await tx.runAsync(
-          `INSERT INTO media(id, owner_id, kind, path, duration_ms, byte_size, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO media(id, owner_id, kind, path, thumbnail_path, duration_ms, byte_size, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           mediaId,
           ownerId,
           remote.kind,
           stored.name,
+          thumbnail?.name ?? null,
           remote.duration_ms,
           remote.media_bytes ?? 0,
           now,
@@ -367,6 +382,9 @@ export async function applyCloudCopy(
             ownerId,
           );
           replacedPath = mediaUri(ownerId, existing.path);
+          replacedThumbnailPath = existing.thumbnail_path
+            ? mediaUri(ownerId, existing.thumbnail_path)
+            : null;
         } else {
           await tx.runAsync(
             `INSERT INTO entries(id, owner_id, diary_date, caption, media_id, source, frame_y, focal_x, focal_y,
@@ -404,12 +422,16 @@ export async function applyCloudCopy(
     });
   } catch (error) {
     if (stored?.exists) stored.delete();
+    if (thumbnail?.exists) thumbnail.delete();
     throw error;
   }
   if (!applied && stored?.exists) stored.delete();
+  if (!applied && thumbnail?.exists) thumbnail.delete();
   try {
     if (replacedPath && new File(replacedPath).exists)
       new File(replacedPath).delete();
+    if (replacedThumbnailPath && new File(replacedThumbnailPath).exists)
+      new File(replacedThumbnailPath).delete();
   } catch {
     // A committed cloud restore remains valid if stale-file cleanup must retry.
   }

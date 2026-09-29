@@ -487,10 +487,14 @@ export default function CalendarScreen() {
                       {summary?.cover?.kind === "photo" && (
                         <Image
                           source={
-                            summary.cover.sample ?? { uri: summary.cover.uri }
+                            summary.cover.sample ?? {
+                              uri:
+                                summary.cover.thumbnailUri ?? summary.cover.uri,
+                            }
                           }
                           contentFit="cover"
                           contentPosition={photoContentPosition(summary.cover)}
+                          cachePolicy="memory-disk"
                           style={StyleSheet.absoluteFill}
                         />
                       )}
@@ -550,6 +554,13 @@ function DateTile({
   const styles = useThemedStyles(createStyles);
   const day = dateFromDiary(date).getDate();
   const future = date > today;
+  const photoSource = React.useMemo(
+    () =>
+      moment?.sample ?? {
+        uri: moment?.thumbnailUri ?? moment?.uri,
+      },
+    [moment?.sample, moment?.thumbnailUri, moment?.uri],
+  );
   return (
     <Pressable
       accessibilityRole="button"
@@ -570,6 +581,7 @@ function DateTile({
             borderRadius: moment?.kind === "video" ? size / 2 : 16,
           },
           !moment && styles.emptyTile,
+          moment && styles.filledTile,
           !moment && date === today && styles.todayTile,
           !moment && future && styles.futureTile,
         ]}
@@ -578,9 +590,11 @@ function DateTile({
           <>
             {moment.kind === "photo" ? (
               <Image
-                source={moment.sample ?? { uri: moment.uri }}
+                source={photoSource}
                 contentFit="cover"
                 contentPosition={photoContentPosition(moment)}
+                cachePolicy="memory-disk"
+                transition={120}
                 style={StyleSheet.absoluteFill}
               />
             ) : playVideo ? (
@@ -797,6 +811,7 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.emptyTileBorder,
     },
+    filledTile: { backgroundColor: colors.blush },
     todayTile: {
       borderColor: colors.olive,
       borderWidth: 1.5,

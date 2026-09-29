@@ -9,6 +9,7 @@ import { diaryDate, shiftDate } from "../lib/dates";
 import type { LegacyFrame } from "../lib/photoFrame";
 import { useAuth } from "../auth/AuthContext";
 import {
+  backfillPhotoThumbnails,
   deleteMomentLocally,
   listSavedMoments,
   saveMomentLocally,
@@ -19,6 +20,7 @@ export type Moment = {
   kind: "photo" | "video";
   source?: "camera" | "library";
   uri?: string;
+  thumbnailUri?: string;
   sample?: number;
   caption: string;
   duration?: number;
@@ -86,13 +88,34 @@ export function DiaryProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     listSavedMoments(ownerId)
       .then((moments) => {
-        if (active)
+        if (active) {
           setSaved({
             ownerId,
             moments: Object.fromEntries(
               moments.map((moment) => [moment.date, moment]),
             ),
           });
+          void backfillPhotoThumbnails(
+            ownerId,
+            (date, photoUri, thumbnailUri) => {
+              if (!active) return;
+              setSaved((current) => {
+                if (current?.ownerId !== ownerId) return current;
+                const moment = current.moments[date];
+                if (moment?.uri !== photoUri) return current;
+                return {
+                  ownerId,
+                  moments: {
+                    ...current.moments,
+                    [date]: { ...moment, thumbnailUri },
+                  },
+                };
+              });
+            },
+          ).catch(() => {
+            // The original photos remain available if preview preparation fails.
+          });
+        }
       })
       .catch(() => {
         if (active) {

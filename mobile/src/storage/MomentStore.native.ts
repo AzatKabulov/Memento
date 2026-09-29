@@ -5,6 +5,7 @@ import type { Moment } from "../state/DiaryContext";
 import { mediaLimitIssue, mediaLimitMessage } from "../lib/mediaRules";
 import { diaryDate, isValidDiaryDate } from "../lib/dates";
 import { focalPoint } from "../lib/photoFrame";
+import { createPhotoThumbnail } from "./PhotoThumbnail.native";
 
 type EntryRow = {
   id: string;
@@ -13,6 +14,7 @@ type EntryRow = {
   kind: "photo" | "video";
   source: "camera" | "library";
   path: string;
+  thumbnail_path: string | null;
   duration_ms: number | null;
   frame_y: "top" | "center" | "bottom";
   focal_x: number;
@@ -139,7 +141,7 @@ export class MomentAlreadyExistsError extends Error {}
 export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
   const db = await database;
   const rows = await db.getAllAsync<EntryRow>(
-    `SELECT e.id, e.diary_date, e.caption, e.source, e.frame_y, e.focal_x, e.focal_y, m.kind, m.path, m.duration_ms
+    `SELECT e.id, e.diary_date, e.caption, e.source, e.frame_y, e.focal_x, e.focal_y, m.kind, m.path, m.thumbnail_path, m.duration_ms
      FROM entries e JOIN media m ON m.id = e.media_id
      WHERE e.owner_id = ? AND e.deleted_at IS NULL
      ORDER BY e.diary_date`,
@@ -150,12 +152,58 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
     kind: row.kind,
     source: row.source,
     uri: mediaUri(ownerId, row.path),
+    thumbnailUri: row.thumbnail_path
+      ? mediaUri(ownerId, row.thumbnail_path)
+      : undefined,
     caption: row.caption,
     frame: row.frame_y,
     focalX: row.focal_x,
     focalY: row.focal_y,
     duration: row.duration_ms == null ? undefined : row.duration_ms / 1000,
   }));
+}
+
+// Existing diaries can open immediately; their older full-size photos receive
+// compact calendar previews in the background, one image at a time.
+export async function backfillPhotoThumbnails(
+  ownerId: string,
+  onReady: (date: string, photoUri: string, thumbnailUri: string) => void,
+) {
+  const db = await database;
+  const rows = await db.getAllAsync<{
+    id: string;
+    date: string;
+    path: string;
+  }>(
+    `SELECT m.id, e.diary_date AS date, m.path
+     FROM entries e JOIN media m ON m.id = e.media_id
+     WHERE e.owner_id = ? AND e.deleted_at IS NULL AND m.kind = 'photo' AND m.thumbnail_path IS NULL
+     ORDER BY e.diary_date DESC`,
+    ownerId,
+  );
+  for (const row of rows) {
+    const photoUri = mediaUri(ownerId, row.path);
+    const thumbnail = new File(
+      ownerDirectory(ownerId),
+      `${row.id}.${randomUUID()}.thumb.jpg`,
+    );
+    if (!(await createPhotoThumbnail(photoUri, thumbnail))) continue;
+    try {
+      const result = await db.runAsync(
+        `UPDATE media SET thumbnail_path = ?
+         WHERE id = ? AND owner_id = ? AND thumbnail_path IS NULL
+         AND EXISTS (SELECT 1 FROM entries e WHERE e.media_id = media.id AND e.deleted_at IS NULL)`,
+        thumbnail.name,
+        row.id,
+        ownerId,
+      );
+      if (result.changes) onReady(row.date, photoUri, thumbnail.uri);
+      else if (thumbnail.exists) thumbnail.delete();
+    } catch {
+      if (thumbnail.exists) thumbnail.delete();
+      // One corrupt image or failed database write must not stall later days.
+    }
+  }
 }
 
 export async function hasMomentLocally(ownerId: string, date: string) {
@@ -188,14 +236,18 @@ export async function saveMomentLocally(
   const focal = focalPoint(moment);
 
   const db = await database;
-  const current = await db.getFirstAsync<{ path: string }>(
-    `SELECT m.path FROM entries e JOIN media m ON m.id = e.media_id
+  const current = await db.getFirstAsync<{
+    path: string;
+    thumbnail_path: string | null;
+  }>(
+    `SELECT m.path, m.thumbnail_path FROM entries e JOIN media m ON m.id = e.media_id
      WHERE e.owner_id = ? AND e.diary_date = ? AND e.deleted_at IS NULL`,
     ownerId,
     moment.date,
   );
   const needsCopy = !current || mediaUri(ownerId, current.path) !== moment.uri;
   let storedFile: File | null = null;
+  let storedThumbnail: File | null = null;
   if (needsCopy) {
     const directory = ownerDirectory(ownerId);
     storedFile = new File(
@@ -221,19 +273,26 @@ export async function saveMomentLocally(
       storedFile.delete();
       throw new Error(mediaLimitMessage(storedIssue));
     }
+    if (moment.kind === "photo") {
+      const thumbnail = new File(directory, `${storedFile.name}.thumb.jpg`);
+      if (await createPhotoThumbnail(storedFile.uri, thumbnail))
+        storedThumbnail = thumbnail;
+    }
   }
 
   let replacedPath: string | null = null;
+  let replacedThumbnailPath: string | null = null;
   try {
     await db.withExclusiveTransactionAsync(async (tx) => {
       const existing = await tx.getFirstAsync<{
         id: string;
         media_id: string;
         path: string;
+        thumbnail_path: string | null;
         source: "camera" | "library";
         deleted_at: string | null;
       }>(
-        `SELECT e.id, e.media_id, e.source, e.deleted_at, m.path FROM entries e
+        `SELECT e.id, e.media_id, e.source, e.deleted_at, m.path, m.thumbnail_path FROM entries e
          JOIN media m ON m.id = e.media_id
          WHERE e.owner_id = ? AND e.diary_date = ?
          ORDER BY (e.deleted_at IS NULL) DESC, e.updated_at DESC LIMIT 1`,
@@ -248,12 +307,13 @@ export async function saveMomentLocally(
         throw new Error("The moment changed while saving. Please try again.");
       if (storedFile)
         await tx.runAsync(
-          `INSERT INTO media (id, owner_id, kind, path, duration_ms, byte_size, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO media (id, owner_id, kind, path, thumbnail_path, duration_ms, byte_size, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           mediaId,
           ownerId,
           moment.kind,
           storedFile.name,
+          storedThumbnail?.name ?? null,
           moment.duration == null ? null : Math.round(moment.duration * 1000),
           storedFile.size ?? 0,
           now,
@@ -275,6 +335,9 @@ export async function saveMomentLocally(
         );
         if (storedFile) {
           replacedPath = mediaUri(ownerId, existing.path);
+          replacedThumbnailPath = existing.thumbnail_path
+            ? mediaUri(ownerId, existing.thumbnail_path)
+            : null;
           await tx.runAsync(
             "DELETE FROM media WHERE id = ? AND owner_id = ?",
             existing.media_id,
@@ -314,11 +377,14 @@ export async function saveMomentLocally(
     });
   } catch (error) {
     if (storedFile?.exists) storedFile.delete();
+    if (storedThumbnail?.exists) storedThumbnail.delete();
     throw error;
   }
   try {
     if (replacedPath && new File(replacedPath).exists)
       new File(replacedPath).delete();
+    if (replacedThumbnailPath && new File(replacedThumbnailPath).exists)
+      new File(replacedThumbnailPath).delete();
   } catch {
     // A committed replacement must still be reported as saved; stale files can be cleaned later.
   }
@@ -327,6 +393,11 @@ export async function saveMomentLocally(
     focalX: focal.x,
     focalY: focal.y,
     uri: storedFile?.uri ?? moment.uri,
+    thumbnailUri: needsCopy
+      ? storedThumbnail?.uri
+      : current?.thumbnail_path
+        ? mediaUri(ownerId, current.thumbnail_path)
+        : undefined,
     sample: undefined,
   };
 }
@@ -334,13 +405,15 @@ export async function saveMomentLocally(
 export async function deleteMomentLocally(ownerId: string, date: string) {
   const db = await database;
   let oldPath: string | null = null;
+  let oldThumbnailPath: string | null = null;
   await db.withExclusiveTransactionAsync(async (tx) => {
     const existing = await tx.getFirstAsync<{
       id: string;
       media_id: string;
       path: string;
+      thumbnail_path: string | null;
     }>(
-      `SELECT e.id, e.media_id, m.path FROM entries e JOIN media m ON m.id = e.media_id
+      `SELECT e.id, e.media_id, m.path, m.thumbnail_path FROM entries e JOIN media m ON m.id = e.media_id
        WHERE e.owner_id = ? AND e.diary_date = ? AND e.deleted_at IS NULL`,
       ownerId,
       date,
@@ -369,9 +442,14 @@ export async function deleteMomentLocally(ownerId: string, date: string) {
       now,
     );
     oldPath = mediaUri(ownerId, existing.path);
+    oldThumbnailPath = existing.thumbnail_path
+      ? mediaUri(ownerId, existing.thumbnail_path)
+      : null;
   });
   try {
     if (oldPath && new File(oldPath).exists) new File(oldPath).delete();
+    if (oldThumbnailPath && new File(oldThumbnailPath).exists)
+      new File(oldThumbnailPath).delete();
   } catch {
     // The tombstone is committed even if filesystem cleanup must be retried.
   }

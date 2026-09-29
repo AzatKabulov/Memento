@@ -225,10 +225,11 @@ export default function Compose() {
           style={[styles.save, !draft && styles.saveDisabled]}
           disabled={!draft || saving}
           accessibilityRole="button"
+          accessibilityState={{ busy: saving, disabled: !draft || saving }}
           onPress={finish}
         >
           <Text style={[styles.saveText, { color: colors.buttonInk }]}>
-            Keep this moment
+            {saving ? "Preparing your moment…" : "Keep this moment"}
           </Text>
         </TouchableOpacity>
       </View>

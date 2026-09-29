@@ -16,3 +16,8 @@ export async function deleteMomentLocally(
   _ownerId: string,
   _date: string,
 ): Promise<void> {}
+
+export async function backfillPhotoThumbnails(
+  _ownerId: string,
+  _onReady: (date: string, photoUri: string, thumbnailUri: string) => void,
+): Promise<void> {}
