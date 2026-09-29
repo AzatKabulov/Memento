@@ -374,22 +374,33 @@ export async function runCloudSync(
       const mediaPath = change.deletedAt
         ? null
         : await uploadMedia(ownerId, change, wifiOnly, active, progress);
-      const { data: result, error: writeError } = await client().rpc(
-        "memento_apply_change",
+      const writeArgs = {
+        p_date: change.date,
+        p_expected_revision: change.cloudRevision,
+        p_mutation_id: change.operationId,
+        p_deleted: !!change.deletedAt,
+        p_kind: change.deletedAt ? null : change.kind,
+        p_caption: change.deletedAt ? "" : change.caption,
+        p_source: change.deletedAt ? null : change.source,
+        p_frame_y: change.deletedAt ? null : change.frame,
+        p_duration_ms: change.deletedAt ? null : change.durationMs,
+        p_media_path: mediaPath,
+        p_media_bytes: change.deletedAt ? null : change.mediaBytes,
+      };
+      let { data: result, error: writeError } = await client().rpc(
+        "memento_apply_change_v2",
         {
-          p_date: change.date,
-          p_expected_revision: change.cloudRevision,
-          p_mutation_id: change.operationId,
-          p_deleted: !!change.deletedAt,
-          p_kind: change.deletedAt ? null : change.kind,
-          p_caption: change.deletedAt ? "" : change.caption,
-          p_source: change.deletedAt ? null : change.source,
-          p_frame_y: change.deletedAt ? null : change.frame,
-          p_duration_ms: change.deletedAt ? null : change.durationMs,
-          p_media_path: mediaPath,
-          p_media_bytes: change.deletedAt ? null : change.mediaBytes,
+          ...writeArgs,
+          p_focal_x: change.deletedAt ? null : change.focalX,
+          p_focal_y: change.deletedAt ? null : change.focalY,
         },
       );
+      if (writeError?.code === "PGRST202") {
+        ({ data: result, error: writeError } = await client().rpc(
+          "memento_apply_change",
+          writeArgs,
+        ));
+      }
       if (writeError) throw writeError;
       const outcome = result as { status?: string; revision?: number } | null;
       if (outcome?.status === "conflict") {

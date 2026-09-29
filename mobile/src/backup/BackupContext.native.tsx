@@ -198,6 +198,8 @@ export function BackupProvider({ children }: { children: React.ReactNode }) {
       uri: file.uri,
       caption: conflict.remote.caption,
       frame: conflict.remote.frame_y ?? "center",
+      focalX: conflict.remote.focal_x ?? undefined,
+      focalY: conflict.remote.focal_y ?? undefined,
       duration:
         conflict.remote.duration_ms == null
           ? undefined

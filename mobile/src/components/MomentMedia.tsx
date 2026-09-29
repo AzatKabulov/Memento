@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer, type VideoPlayer } from "expo-video";
 import type { Moment } from "../state/DiaryContext";
+import { photoContentPosition } from "../lib/photoFrame";
 
 export function MomentMedia({
   moment,
@@ -32,7 +33,7 @@ export function MomentMedia({
     <Image
       source={moment.sample ?? { uri: moment.uri }}
       contentFit="cover"
-      contentPosition={moment.frame ?? "center"}
+      contentPosition={photoContentPosition(moment)}
       style={{
         width: size,
         height,

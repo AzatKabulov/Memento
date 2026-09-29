@@ -160,6 +160,7 @@ function MomentView({ date }: { date: string }) {
         <View
           style={[
             styles.mediaWrap,
+            moment.kind === "video" && styles.videoWrap,
             {
               width: mediaSize,
               height: moment.kind === "photo" ? mediaSize * 1.18 : mediaSize,
@@ -240,9 +241,6 @@ function MomentView({ date }: { date: string }) {
           >
             <Text style={styles.editMomentText}>✎ Edit moment</Text>
           </TouchableOpacity>
-          <View style={styles.privatePill}>
-            <Text style={styles.privateText}>Private diary</Text>
-          </View>
         </View>
         <View style={styles.memoryNav}>
           <TouchableOpacity
@@ -355,6 +353,13 @@ const createStyles = (colors: ThemeColors) =>
       shadowRadius: 20,
       elevation: 5,
     },
+    videoWrap: {
+      borderRadius: 999,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      backgroundColor: "transparent",
+    },
     photoFrame: {
       width: "100%",
       height: "100%",
@@ -403,17 +408,6 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "center",
     },
     editMomentText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
-    privatePill: {
-      flex: 1,
-      minHeight: 50,
-      borderRadius: 25,
-      borderWidth: 1,
-      borderColor: colors.line,
-      backgroundColor: colors.card,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    privateText: { color: colors.muted, fontSize: 13 },
     memoryNav: {
       flexDirection: "row",
       justifyContent: "space-between",

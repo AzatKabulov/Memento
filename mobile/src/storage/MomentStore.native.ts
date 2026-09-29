@@ -4,6 +4,7 @@ import * as SQLite from "expo-sqlite";
 import type { Moment } from "../state/DiaryContext";
 import { mediaLimitIssue, mediaLimitMessage } from "../lib/mediaRules";
 import { diaryDate, isValidDiaryDate } from "../lib/dates";
+import { focalPoint } from "../lib/photoFrame";
 
 type EntryRow = {
   id: string;
@@ -14,6 +15,8 @@ type EntryRow = {
   path: string;
   duration_ms: number | null;
   frame_y: "top" | "center" | "bottom";
+  focal_x: number;
+  focal_y: number;
 };
 
 export const database = SQLite.openDatabaseAsync("memento.db").then(
@@ -21,7 +24,7 @@ export const database = SQLite.openDatabaseAsync("memento.db").then(
     const version = await db.getFirstAsync<{ user_version: number }>(
       "PRAGMA user_version",
     );
-    if ((version?.user_version ?? 0) > 3)
+    if ((version?.user_version ?? 0) > 4)
       throw new Error("This diary needs a newer Memento version.");
     await db.execAsync("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     if ((version?.user_version ?? 0) < 1)
@@ -96,6 +99,15 @@ export const database = SQLite.openDatabaseAsync("memento.db").then(
       PRAGMA user_version = 3;
       COMMIT;
     `);
+    if ((version?.user_version ?? 0) < 4)
+      await db.execAsync(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE entries ADD COLUMN focal_x INTEGER NOT NULL DEFAULT 50 CHECK(focal_x BETWEEN 0 AND 100);
+      ALTER TABLE entries ADD COLUMN focal_y INTEGER NOT NULL DEFAULT 50 CHECK(focal_y BETWEEN 0 AND 100);
+      UPDATE entries SET focal_y = CASE frame_y WHEN 'top' THEN 0 WHEN 'bottom' THEN 100 ELSE 50 END;
+      PRAGMA user_version = 4;
+      COMMIT;
+    `);
     return db;
   },
 );
@@ -127,7 +139,7 @@ export class MomentAlreadyExistsError extends Error {}
 export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
   const db = await database;
   const rows = await db.getAllAsync<EntryRow>(
-    `SELECT e.id, e.diary_date, e.caption, e.source, e.frame_y, m.kind, m.path, m.duration_ms
+    `SELECT e.id, e.diary_date, e.caption, e.source, e.frame_y, e.focal_x, e.focal_y, m.kind, m.path, m.duration_ms
      FROM entries e JOIN media m ON m.id = e.media_id
      WHERE e.owner_id = ? AND e.deleted_at IS NULL
      ORDER BY e.diary_date`,
@@ -140,6 +152,8 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
     uri: mediaUri(ownerId, row.path),
     caption: row.caption,
     frame: row.frame_y,
+    focalX: row.focal_x,
+    focalY: row.focal_y,
     duration: row.duration_ms == null ? undefined : row.duration_ms / 1000,
   }));
 }
@@ -171,6 +185,7 @@ export async function saveMomentLocally(
     sourceFile.size ?? undefined,
   );
   if (issue) throw new Error(mediaLimitMessage(issue));
+  const focal = focalPoint(moment);
 
   const db = await database;
   const current = await db.getFirstAsync<{ path: string }>(
@@ -246,12 +261,14 @@ export async function saveMomentLocally(
       const entryId = existing?.id ?? randomUUID();
       if (existing) {
         await tx.runAsync(
-          `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, updated_at = ?, deleted_at = NULL, revision = revision + 1
+          `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, focal_x = ?, focal_y = ?, updated_at = ?, deleted_at = NULL, revision = revision + 1
            WHERE id = ? AND owner_id = ?`,
           moment.caption,
           mediaId,
           needsCopy ? (moment.source ?? "library") : existing.source,
           moment.frame ?? "center",
+          focal.x,
+          focal.y,
           now,
           entryId,
           ownerId,
@@ -266,8 +283,8 @@ export async function saveMomentLocally(
         }
       } else {
         await tx.runAsync(
-          `INSERT INTO entries (id, owner_id, diary_date, caption, media_id, source, frame_y, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO entries (id, owner_id, diary_date, caption, media_id, source, frame_y, focal_x, focal_y, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           entryId,
           ownerId,
           moment.date,
@@ -275,6 +292,8 @@ export async function saveMomentLocally(
           mediaId,
           moment.source ?? "library",
           moment.frame ?? "center",
+          focal.x,
+          focal.y,
           now,
           now,
         );
@@ -303,7 +322,13 @@ export async function saveMomentLocally(
   } catch {
     // A committed replacement must still be reported as saved; stale files can be cleaned later.
   }
-  return { ...moment, uri: storedFile?.uri ?? moment.uri, sample: undefined };
+  return {
+    ...moment,
+    focalX: focal.x,
+    focalY: focal.y,
+    uri: storedFile?.uri ?? moment.uri,
+    sample: undefined,
+  };
 }
 
 export async function deleteMomentLocally(ownerId: string, date: string) {

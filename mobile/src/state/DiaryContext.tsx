@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { diaryDate, shiftDate } from "../lib/dates";
+import type { LegacyFrame } from "../lib/photoFrame";
 import { useAuth } from "../auth/AuthContext";
 import {
   deleteMomentLocally,
@@ -21,7 +22,9 @@ export type Moment = {
   sample?: number;
   caption: string;
   duration?: number;
-  frame?: "top" | "center" | "bottom";
+  frame?: LegacyFrame;
+  focalX?: number;
+  focalY?: number;
 };
 
 type DiaryState = {

@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../../components/MomentMedia";
+import { PhotoFramer } from "../../components/PhotoFramer";
+import { focalPoint, frameForFocalY } from "../../lib/photoFrame";
 import { diaryDate, momentLabel } from "../../lib/dates";
 import { pickMedia, showPickMediaError } from "../../lib/pickMedia";
 import {
@@ -46,7 +48,9 @@ export default function Compose() {
           uri: params.uri,
           caption: existing?.caption ?? "",
           duration: params.duration ? Number(params.duration) : undefined,
-          frame: existing?.frame ?? "center",
+          frame: "center",
+          focalX: 50,
+          focalY: 50,
         }
       : (existing ?? null),
   );
@@ -72,6 +76,8 @@ export default function Compose() {
         caption,
         duration: asset.duration,
         frame: "center",
+        focalX: 50,
+        focalY: 50,
       });
     } catch (error) {
       showPickMediaError(error);
@@ -82,7 +88,12 @@ export default function Compose() {
     if (!draft || saving) return;
     setSaving(true);
     try {
-      await save({ ...draft, date, caption: caption.trim() });
+      await save({
+        ...draft,
+        date,
+        caption: caption.trim(),
+        frame: frameForFocalY(focalPoint(draft).y),
+      });
       router.replace({ pathname: "/moment/[date]", params: { date } });
     } catch (error) {
       Alert.alert(
@@ -100,7 +111,8 @@ export default function Compose() {
       (!existing ||
         draft.uri !== existing.uri ||
         caption !== existing.caption ||
-        (draft.frame ?? "center") !== (existing.frame ?? "center"))
+        focalPoint(draft).x !== focalPoint(existing).x ||
+        focalPoint(draft).y !== focalPoint(existing).y)
     ) {
       Alert.alert("Leave this draft?", "Unsaved changes will be lost.", [
         { text: "Keep writing", style: "cancel" },
@@ -131,7 +143,18 @@ export default function Compose() {
         <Text style={styles.eyebrow}>A MOMENT FOR</Text>
         <Text style={styles.date}>{momentLabel(date)}</Text>
         <View style={styles.preview}>
-          {draft ? (
+          {draft?.kind === "photo" ? (
+            <PhotoFramer
+              key={draft.uri ?? "sample"}
+              moment={draft}
+              size={270}
+              onChange={(x, y) =>
+                setDraft((current) =>
+                  current ? { ...current, focalX: x, focalY: y } : current,
+                )
+              }
+            />
+          ) : draft ? (
             <MomentMedia moment={draft} size={270} focused={false} />
           ) : (
             <View style={styles.emptyPreview}>
@@ -142,37 +165,11 @@ export default function Compose() {
         </View>
         {draft?.kind === "photo" && (
           <View style={styles.framing}>
-            <Text style={styles.fieldLabel}>FRAME IN YOUR CALENDAR</Text>
+            <Text style={styles.fieldLabel}>POSITION IN YOUR CALENDAR</Text>
             <Text style={styles.frameHint}>
-              The full photo stays saved. Choose what appears in its square.
+              Drag the photo above to choose what appears in its square. The
+              full photo stays saved.
             </Text>
-            <View style={styles.frameOptions}>
-              {(["top", "center", "bottom"] as const).map((position) => (
-                <TouchableOpacity
-                  key={position}
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    selected: (draft.frame ?? "center") === position,
-                  }}
-                  onPress={() => setDraft({ ...draft, frame: position })}
-                  style={[
-                    styles.frameOption,
-                    (draft.frame ?? "center") === position &&
-                      styles.frameOptionSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.frameOptionText,
-                      (draft.frame ?? "center") === position &&
-                        styles.frameOptionTextSelected,
-                    ]}
-                  >
-                    {position[0].toUpperCase() + position.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         )}
         <Text style={styles.fieldLabel}>CHOOSE YOUR MOMENT</Text>
@@ -298,22 +295,6 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 18,
       marginBottom: 12,
     },
-    frameOptions: { flexDirection: "row", gap: 9 },
-    frameOption: {
-      flex: 1,
-      minHeight: 44,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: colors.line,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    frameOptionSelected: {
-      backgroundColor: colors.plum,
-      borderColor: colors.plum,
-    },
-    frameOptionText: { color: colors.ink, fontWeight: "600", fontSize: 12 },
-    frameOptionTextSelected: { color: colors.buttonInk },
     sources: { flexDirection: "row", gap: 12 },
     source: {
       flex: 1,

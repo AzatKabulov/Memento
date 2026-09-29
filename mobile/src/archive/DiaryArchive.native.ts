@@ -3,6 +3,7 @@ import { File, FileMode, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { diaryDate, isValidDiaryDate } from "../lib/dates";
 import { mediaLimitIssue } from "../lib/mediaRules";
+import { focalPoint } from "../lib/photoFrame";
 import type { Moment } from "../state/DiaryContext";
 import {
   hasMomentLocally,
@@ -29,6 +30,8 @@ type ArchiveEntry = {
   kind: "photo" | "video";
   caption: string;
   frame: "top" | "center" | "bottom";
+  focalX?: number;
+  focalY?: number;
   duration: number | null;
   mediaPath: string;
   mediaBytes: number;
@@ -177,6 +180,8 @@ export async function shareDiaryArchive(
         kind: moment.kind,
         caption: moment.caption,
         frame: moment.frame ?? "center",
+        focalX: focalPoint(moment).x,
+        focalY: focalPoint(moment).y,
         duration: moment.duration ?? null,
         mediaPath: path,
         mediaBytes: file.size,
@@ -231,6 +236,17 @@ function validEntry(value: unknown): value is ArchiveEntry {
     entry.frame !== "top" &&
     entry.frame !== "center" &&
     entry.frame !== "bottom"
+  )
+    return false;
+  if (
+    (entry.focalX !== undefined &&
+      (!Number.isInteger(entry.focalX) ||
+        entry.focalX < 0 ||
+        entry.focalX > 100)) ||
+    (entry.focalY !== undefined &&
+      (!Number.isInteger(entry.focalY) ||
+        entry.focalY < 0 ||
+        entry.focalY > 100))
   )
     return false;
   if (!Number.isSafeInteger(entry.mediaBytes) || (entry.mediaBytes ?? 0) < 1)
@@ -454,6 +470,8 @@ export async function restoreDiaryArchive(
               uri: temporary.uri,
               caption: entry.caption,
               frame: entry.frame,
+              focalX: entry.focalX,
+              focalY: entry.focalY,
               duration: entry.duration ?? undefined,
             },
             duplicates === "skip",

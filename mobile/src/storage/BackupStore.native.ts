@@ -12,6 +12,7 @@ import type {
   LocalChange,
   RemoteMoment,
 } from "../backup/types";
+import { focalPoint } from "../lib/photoFrame";
 
 export async function localSyncIndex(ownerId: string) {
   const db = await database;
@@ -44,7 +45,8 @@ export async function nextPendingChange(
   return db.getFirstAsync<LocalChange>(
     `SELECT p.id AS operationId, e.id AS entryId, e.diary_date AS date,
        e.revision, e.cloud_revision AS cloudRevision, e.deleted_at AS deletedAt,
-       m.kind, e.caption, e.source, e.frame_y AS frame, m.duration_ms AS durationMs,
+       m.kind, e.caption, e.source, e.frame_y AS frame,
+       e.focal_x AS focalX, e.focal_y AS focalY, m.duration_ms AS durationMs,
        m.id AS mediaId, m.path AS mediaPath, m.byte_size AS mediaBytes,
        p.media_path AS uploadPath, p.upload_url AS uploadUrl,
        p.retry_at AS retryAt, p.attempts
@@ -339,14 +341,21 @@ export async function applyCloudCopy(
           remote.media_bytes ?? 0,
           now,
         );
+        const focal = focalPoint({
+          frame: remote.frame_y ?? "center",
+          focalX: remote.focal_x ?? undefined,
+          focalY: remote.focal_y ?? undefined,
+        });
         if (existing) {
           await tx.runAsync(
-            `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, deleted_at = NULL,
+            `UPDATE entries SET caption = ?, media_id = ?, source = ?, frame_y = ?, focal_x = ?, focal_y = ?, deleted_at = NULL,
               cloud_revision = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND owner_id = ?`,
             remote.caption,
             mediaId,
             remote.source ?? "library",
             remote.frame_y ?? "center",
+            focal.x,
+            focal.y,
             remote.revision,
             now,
             existing.id,
@@ -360,9 +369,9 @@ export async function applyCloudCopy(
           replacedPath = mediaUri(ownerId, existing.path);
         } else {
           await tx.runAsync(
-            `INSERT INTO entries(id, owner_id, diary_date, caption, media_id, source, frame_y,
+            `INSERT INTO entries(id, owner_id, diary_date, caption, media_id, source, frame_y, focal_x, focal_y,
               created_at, updated_at, revision, cloud_revision)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
             randomUUID(),
             ownerId,
             remote.diary_date,
@@ -370,6 +379,8 @@ export async function applyCloudCopy(
             mediaId,
             remote.source ?? "library",
             remote.frame_y ?? "center",
+            focal.x,
+            focal.y,
             now,
             now,
             remote.revision,

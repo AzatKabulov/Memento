@@ -27,6 +27,8 @@ Open it in Expo Go or a development build on a supported phone, or run `npm run 
 
 To connect a Supabase project, copy `mobile/.env.example` to `mobile/.env` and set its project URL and publishable key. Never put a service-role key in the app. Configure email confirmation and allow the `memento://auth/callback` and `memento://auth/reset` redirect URLs in Supabase. Volume 1 uses email sign-in only.
 
+Cloud backup setup uses the SQL files in `supabase/migrations/` in date order. After the original private-diary migration, run `202609290001_manual_photo_framing.sql` in the Supabase SQL Editor so manually positioned calendar photos restore with the same crop on another phone. The app remains compatible with the earlier cloud schema, but that schema stores only an approximate top/center/bottom position.
+
 ```sh
 npm run typecheck
 npm run lint

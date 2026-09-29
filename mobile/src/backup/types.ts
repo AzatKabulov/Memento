@@ -7,6 +7,8 @@ export type RemoteMoment = {
   caption: string;
   source: "camera" | "library" | null;
   frame_y: "top" | "center" | "bottom" | null;
+  focal_x?: number | null;
+  focal_y?: number | null;
   duration_ms: number | null;
   media_path: string | null;
   media_bytes: number | null;
@@ -25,6 +27,8 @@ export type LocalChange = {
   caption: string;
   source: "camera" | "library";
   frame: "top" | "center" | "bottom";
+  focalX: number;
+  focalY: number;
   durationMs: number | null;
   mediaId: string;
   mediaPath: string;

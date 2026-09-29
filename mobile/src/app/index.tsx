@@ -8,6 +8,7 @@ import React, {
 import { Image } from "expo-image";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurTargetView } from "expo-blur";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Modal,
@@ -23,6 +24,7 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../components/MomentMedia";
+import { HoldPreview } from "../components/HoldPreview";
 import {
   CameraIcon,
   ChevronIcon,
@@ -45,6 +47,7 @@ import {
   type,
 } from "../lib/theme";
 import { pickMedia, showPickMediaError } from "../lib/pickMedia";
+import { photoContentPosition } from "../lib/photoFrame";
 import { useDiary, type Moment } from "../state/DiaryContext";
 
 const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -73,6 +76,7 @@ export default function CalendarScreen() {
   const [scrollHeight, setScrollHeight] = useState(0);
   const [gridY, setGridY] = useState(0);
   const scrollIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTargetRef = useRef<View | null>(null);
   const { width, height } = useWindowDimensions();
   const compact = height < 700;
   const viewportWidth = Math.min(width, 480) - (Platform.OS === "web" ? 16 : 0);
@@ -122,7 +126,8 @@ export default function CalendarScreen() {
     }
     return result;
   }, [moments]);
-  const held = useRef(false);
+  const suppressPress = useRef(false);
+  const suppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -147,6 +152,7 @@ export default function CalendarScreen() {
       motion.remove();
       app.remove();
       if (scrollIdle.current) clearTimeout(scrollIdle.current);
+      if (suppressTimer.current) clearTimeout(suppressTimer.current);
     };
   }, []);
 
@@ -176,10 +182,7 @@ export default function CalendarScreen() {
     scrollIdle.current = setTimeout(() => setScrolling(false), 250);
   };
   const openDate = async (date: string) => {
-    if (held.current) {
-      held.current = false;
-      return;
-    }
+    if (preview || suppressPress.current) return;
     if (moments[date])
       router.push({ pathname: "/moment/[date]", params: { date } });
     else if (date === today)
@@ -206,222 +209,206 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView style={styles.page}>
-      <LinearGradient
-        colors={
-          theme === "dark"
-            ? (["#1B1511", colors.paper, "#1C1511"] as const)
-            : ([colors.paper, "#F7F3ED", "#F2EADF"] as const)
-        }
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <View style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          onLayout={(event) => setScrollHeight(event.nativeEvent.layout.height)}
-          onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
-          scrollEventThrottle={32}
-          onScrollBeginDrag={() => setScrolling(true)}
-          onScrollEndDrag={resumeAfterScroll}
-          onMomentumScrollBegin={() => setScrolling(true)}
-          onMomentumScrollEnd={resumeAfterScroll}
-        >
-          <View style={styles.topline}>
-            <View style={styles.brandLockup}>
-              <View style={styles.brandMark}>
-                <Text style={styles.brandMarkText}>M</Text>
+      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
+        <LinearGradient
+          colors={
+            theme === "dark"
+              ? (["#1B1511", colors.paper, "#1C1511"] as const)
+              : ([colors.paper, "#F7F3ED", "#F2EADF"] as const)
+          }
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            onLayout={(event) =>
+              setScrollHeight(event.nativeEvent.layout.height)
+            }
+            onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
+            scrollEventThrottle={32}
+            onScrollBeginDrag={() => setScrolling(true)}
+            onScrollEndDrag={resumeAfterScroll}
+            onMomentumScrollBegin={() => setScrolling(true)}
+            onMomentumScrollEnd={resumeAfterScroll}
+          >
+            <View style={styles.topline}>
+              <View style={styles.brandLockup}>
+                <View style={styles.brandMark}>
+                  <Text style={styles.brandMarkText}>M</Text>
+                </View>
+                <Text style={styles.brand}>Memento</Text>
               </View>
-              <Text style={styles.brand}>Memento</Text>
+              <TouchableOpacity
+                accessibilityLabel="Settings"
+                accessibilityRole="button"
+                onPress={() => router.push("/settings")}
+                style={styles.settings}
+              >
+                <SettingsIcon color={colors.muted} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              accessibilityLabel="Settings"
-              accessibilityRole="button"
-              onPress={() => router.push("/settings")}
-              style={styles.settings}
+            <View style={styles.headingRow}>
+              <View style={styles.headingContent}>
+                <Text style={styles.eyebrow}>YOUR DAYS, KEPT CLOSE</Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose month and year"
+                  onPress={() => {
+                    setSelectedYear(year);
+                    setYearOpen(true);
+                  }}
+                  style={[
+                    styles.monthPicker,
+                    narrow && styles.monthPickerNarrow,
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.68}
+                    style={[
+                      styles.monthTitle,
+                      narrow && styles.monthTitleNarrow,
+                    ]}
+                  >
+                    {new Intl.DateTimeFormat("en", { month: "long" }).format(
+                      visibleMonth,
+                    )}
+                  </Text>
+                  <Text
+                    style={[styles.yearText, narrow && styles.yearTextNarrow]}
+                  >
+                    {year}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.monthNav}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
+                  onPress={() => changeMonth(-1)}
+                  style={styles.arrow}
+                >
+                  <ChevronIcon color={colors.muted} direction="left" />
+                </TouchableOpacity>
+                <View style={styles.arrowDivider} />
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  disabled={
+                    year === new Date().getFullYear() &&
+                    month === new Date().getMonth()
+                  }
+                  onPress={() => changeMonth(1)}
+                  style={[
+                    styles.arrow,
+                    year === new Date().getFullYear() &&
+                      month === new Date().getMonth() &&
+                      styles.arrowDisabled,
+                  ]}
+                >
+                  <ChevronIcon color={colors.muted} direction="right" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.weekRow}>
+              {weekdays.map((day, index) => (
+                <Text key={index} style={[styles.weekLabel, { width: tile }]}>
+                  {day}
+                </Text>
+              ))}
+            </View>
+            <View
+              onLayout={(event) => setGridY(event.nativeEvent.layout.y)}
+              style={[
+                styles.grid,
+                {
+                  columnGap: 5,
+                  justifyContent: "flex-start",
+                },
+              ]}
             >
-              <SettingsIcon color={colors.muted} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.headingRow}>
-            <View style={styles.headingContent}>
-              <Text style={styles.eyebrow}>YOUR DAYS, KEPT CLOSE</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Choose month and year"
-                onPress={() => {
-                  setSelectedYear(year);
-                  setYearOpen(true);
-                }}
-                style={[styles.monthPicker, narrow && styles.monthPickerNarrow]}
-              >
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.68}
-                  style={[styles.monthTitle, narrow && styles.monthTitleNarrow]}
-                >
-                  {new Intl.DateTimeFormat("en", { month: "long" }).format(
-                    visibleMonth,
-                  )}
-                </Text>
-                <Text
-                  style={[styles.yearText, narrow && styles.yearTextNarrow]}
-                >
-                  {year}
-                </Text>
-              </TouchableOpacity>
+              {cells.map((date, index) =>
+                date ? (
+                  <DateTile
+                    key={date}
+                    date={date}
+                    moment={moments[date]}
+                    today={today}
+                    size={tile}
+                    visible={visibleRows.has(Math.floor(index / 7))}
+                    playVideo={canPreview && previewVideos.includes(date)}
+                    onOpen={() => openDate(date)}
+                    onHold={() => {
+                      suppressPress.current = true;
+                      if (suppressTimer.current)
+                        clearTimeout(suppressTimer.current);
+                      suppressTimer.current = setTimeout(() => {
+                        suppressPress.current = false;
+                      }, 500);
+                      if (moments[date]) setPreview(moments[date]);
+                    }}
+                  />
+                ) : (
+                  <View
+                    key={`empty-${index}`}
+                    style={{ width: tile, height: tile }}
+                  />
+                ),
+              )}
             </View>
-            <View style={styles.monthNav}>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Previous month"
-                onPress={() => changeMonth(-1)}
-                style={styles.arrow}
-              >
-                <ChevronIcon color={colors.muted} direction="left" />
-              </TouchableOpacity>
-              <View style={styles.arrowDivider} />
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Next month"
-                disabled={
-                  year === new Date().getFullYear() &&
-                  month === new Date().getMonth()
-                }
-                onPress={() => changeMonth(1)}
+            {!compact && (
+              <Text style={styles.monthCount}>
+                {`${monthCount} ${monthCount === 1 ? "moment" : "moments"}, kept only for you`}
+              </Text>
+            )}
+          </ScrollView>
+        </View>
+        <View style={[styles.bottomBar, compact && styles.bottomBarCompact]}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={
+              moments[today] ? "View today's moment" : "Capture today's moment"
+            }
+            style={[styles.addButton, compact && styles.addButtonCompact]}
+            onPress={() => openDate(today)}
+          >
+            <LinearGradient
+              colors={
+                theme === "dark"
+                  ? (["#EDCFA1", "#B48758", "#674B35"] as const)
+                  : (["#BD8B58", "#94643A", "#765035"] as const)
+              }
+              style={[
+                styles.captureMetal,
+                compact && styles.captureMetalCompact,
+              ]}
+            >
+              <View
                 style={[
-                  styles.arrow,
-                  year === new Date().getFullYear() &&
-                    month === new Date().getMonth() &&
-                    styles.arrowDisabled,
+                  styles.captureFace,
+                  compact && styles.captureFaceCompact,
                 ]}
               >
-                <ChevronIcon color={colors.muted} direction="right" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.weekRow}>
-            {weekdays.map((day, index) => (
-              <Text key={index} style={[styles.weekLabel, { width: tile }]}>
-                {day}
-              </Text>
-            ))}
-          </View>
-          <View
-            onLayout={(event) => setGridY(event.nativeEvent.layout.y)}
-            style={[
-              styles.grid,
-              {
-                columnGap: 5,
-                justifyContent: "flex-start",
-              },
-            ]}
-          >
-            {cells.map((date, index) =>
-              date ? (
-                <DateTile
-                  key={date}
-                  date={date}
-                  moment={moments[date]}
-                  today={today}
-                  size={tile}
-                  visible={visibleRows.has(Math.floor(index / 7))}
-                  playVideo={canPreview && previewVideos.includes(date)}
-                  onOpen={() => openDate(date)}
-                  onHold={() => {
-                    held.current = true;
-                    if (moments[date]) setPreview(moments[date]);
-                  }}
-                  onRelease={() => {
-                    setPreview(null);
-                    setTimeout(() => {
-                      held.current = false;
-                    }, 0);
-                  }}
-                />
-              ) : (
-                <View
-                  key={`empty-${index}`}
-                  style={{ width: tile, height: tile }}
-                />
-              ),
-            )}
-          </View>
-          {!compact && (
-            <Text style={styles.monthCount}>
-              {`${monthCount} ${monthCount === 1 ? "moment" : "moments"}, kept only for you`}
-            </Text>
-          )}
-        </ScrollView>
-      </View>
-      <View style={[styles.bottomBar, compact && styles.bottomBarCompact]}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={
-            moments[today] ? "View today's moment" : "Capture today's moment"
-          }
-          style={[styles.addButton, compact && styles.addButtonCompact]}
-          onPress={() => openDate(today)}
-        >
-          <LinearGradient
-            colors={
-              theme === "dark"
-                ? (["#EDCFA1", "#B48758", "#674B35"] as const)
-                : (["#BD8B58", "#94643A", "#765035"] as const)
-            }
-            style={[styles.captureMetal, compact && styles.captureMetalCompact]}
-          >
-            <View
-              style={[styles.captureFace, compact && styles.captureFaceCompact]}
-            >
-              <CameraIcon color={theme === "dark" ? colors.ink : "#FFF4E4"} />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-      <Modal
-        visible={!!preview}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setPreview(null);
-          held.current = false;
-        }}
-      >
-        <Pressable
-          style={styles.previewShade}
-          onPress={() => {
-            setPreview(null);
-            held.current = false;
-          }}
-        >
-          {preview && (
-            <View style={styles.previewCard}>
-              <Text style={styles.previewDate}>
-                {new Intl.DateTimeFormat("en", {
-                  month: "long",
-                  day: "numeric",
-                }).format(dateFromDiary(preview.date))}
-              </Text>
-              <Text style={styles.previewMeta}>
-                {new Intl.DateTimeFormat("en", { weekday: "long" }).format(
-                  dateFromDiary(preview.date),
-                )}
-              </Text>
-              <View style={styles.previewMedia}>
-                <MomentMedia
-                  moment={preview}
-                  size={Math.min(width - 100, 280)}
-                  focused={false}
-                />
+                <CameraIcon color={theme === "dark" ? colors.ink : "#FFF4E4"} />
               </View>
-              <Text style={styles.previewCaption} numberOfLines={2}>
-                {preview.caption || "A moment kept."}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-      </Modal>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </BlurTargetView>
+      {preview && (
+        <HoldPreview
+          key={preview.date}
+          initialDate={preview.date}
+          moments={moments}
+          width={width}
+          height={height}
+          blurTarget={blurTargetRef}
+          reduceMotion={reduceMotion}
+          onClose={() => setPreview(null)}
+        />
+      )}
       <Modal
         visible={yearOpen}
         animationType="slide"
@@ -503,7 +490,7 @@ export default function CalendarScreen() {
                             summary.cover.sample ?? { uri: summary.cover.uri }
                           }
                           contentFit="cover"
-                          contentPosition={summary.cover.frame ?? "center"}
+                          contentPosition={photoContentPosition(summary.cover)}
                           style={StyleSheet.absoluteFill}
                         />
                       )}
@@ -550,7 +537,6 @@ function DateTile({
   playVideo,
   onOpen,
   onHold,
-  onRelease,
 }: {
   date: string;
   moment?: Moment;
@@ -560,7 +546,6 @@ function DateTile({
   playVideo: boolean;
   onOpen: () => void;
   onHold: () => void;
-  onRelease: () => void;
 }) {
   const styles = useThemedStyles(createStyles);
   const day = dateFromDiary(date).getDate();
@@ -572,7 +557,6 @@ function DateTile({
       disabled={future}
       onPress={onOpen}
       onLongPress={moment ? onHold : undefined}
-      onPressOut={onRelease}
       delayLongPress={300}
       hitSlop={3}
       style={{ width: size, height: size, alignItems: "center" }}
@@ -596,7 +580,7 @@ function DateTile({
               <Image
                 source={moment.sample ?? { uri: moment.uri }}
                 contentFit="cover"
-                contentPosition={moment.frame ?? "center"}
+                contentPosition={photoContentPosition(moment)}
                 style={StyleSheet.absoluteFill}
               />
             ) : playVideo ? (
@@ -929,39 +913,6 @@ const createStyles = (colors: ThemeColors) =>
       width: 50,
       height: 50,
       borderRadius: 25,
-    },
-    previewShade: {
-      flex: 1,
-      backgroundColor: "rgba(7,5,4,0.82)",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    previewCard: {
-      backgroundColor: colors.card,
-      borderRadius: 30,
-      padding: 18,
-      width: "84%",
-      maxWidth: 350,
-      borderWidth: 1,
-      borderColor: colors.line,
-    },
-    previewDate: {
-      color: colors.ink,
-      fontFamily: type.display,
-      fontSize: 22,
-      fontWeight: "700",
-    },
-    previewMeta: { color: colors.muted, marginTop: 4, fontSize: 12 },
-    previewMedia: {
-      marginTop: 16,
-      borderRadius: 22,
-      overflow: "hidden",
-      alignSelf: "center",
-    },
-    previewCaption: {
-      marginTop: 12,
-      color: colors.ink,
-      fontSize: 13,
     },
     yearBackdrop: { flex: 1, backgroundColor: colors.paper },
     yearPage: {
