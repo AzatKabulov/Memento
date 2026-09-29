@@ -1,8 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { BlurView } from "expo-blur";
 import {
   Animated,
   BackHandler,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,6 +23,8 @@ import { MomentMedia } from "./MomentMedia";
 
 const animationDuration = (velocity: number) =>
   Math.max(115, Math.min(260, 250 - Math.abs(velocity) * 95));
+const slideDuration = (remaining: number, velocity: number) =>
+  Math.max(100, Math.min(320, remaining / Math.max(0.9, Math.abs(velocity))));
 
 export function HoldPreview({
   initialDate,
@@ -36,13 +45,20 @@ export function HoldPreview({
 }) {
   const styles = useThemedStyles(createStyles);
   const [date, setDate] = useState(initialDate);
-  const [incomingDate, setIncomingDate] = useState<string | null>(null);
   const dates = useMemo(() => Object.keys(moments).sort(), [moments]);
   const [position] = useState(() => new Animated.ValueXY());
-  const [incomingX] = useState(() => new Animated.Value(0));
   const [backdropOpacity] = useState(() => new Animated.Value(0));
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const moving = useRef(false);
+  const pendingDate = useRef<string | null>(null);
+  const previousX = useMemo(
+    () => Animated.add(position.x, -width),
+    [position, width],
+  );
+  const nextX = useMemo(
+    () => Animated.add(position.x, width),
+    [position, width],
+  );
   const touch = useRef({
     x: 0,
     y: 0,
@@ -54,6 +70,15 @@ export function HoldPreview({
   });
   const mediaSize = Math.min(width - 100, 280);
   const cardWidth = Math.min(width - 44, 350);
+
+  // Rebase the same visual position when the arriving card becomes current.
+  // A layout effect keeps the completed slide from briefly showing the old card.
+  useLayoutEffect(() => {
+    if (pendingDate.current !== date) return;
+    position.setValue({ x: 0, y: 0 });
+    pendingDate.current = null;
+    moving.current = false;
+  }, [date, position]);
 
   useEffect(() => {
     Animated.parallel([
@@ -112,27 +137,26 @@ export function HoldPreview({
       return;
     }
     moving.current = true;
-    // Both cards travel the same remaining distance in the same time.
-    incomingX.setValue(direction * width + displacement);
-    setIncomingDate(target);
-    requestAnimationFrame(() => {
-      Animated.parallel([
-        Animated.timing(position.x, {
-          toValue: -direction * width,
-          duration: animationDuration(velocity),
-          useNativeDriver: true,
-        }),
-        Animated.timing(incomingX, {
-          toValue: 0,
-          duration: animationDuration(velocity),
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        position.setValue({ x: 0, y: 0 });
-        setDate(target);
-        setIncomingDate(null);
+    // Both cards share position.x, so they follow the finger and settle together.
+    Animated.parallel([
+      Animated.timing(position.x, {
+        toValue: -direction * width,
+        duration: slideDuration(width - Math.abs(displacement), velocity),
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(position.y, {
+        toValue: 0,
+        duration: slideDuration(width - Math.abs(displacement), velocity),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (!finished) {
         moving.current = false;
-      });
+        return;
+      }
+      pendingDate.current = target;
+      setDate(target);
     });
   }
 
@@ -173,7 +197,9 @@ export function HoldPreview({
   }, [date]);
 
   const current = moments[date];
-  const incoming = incomingDate ? moments[incomingDate] : null;
+  const index = dates.indexOf(date);
+  const previous = moments[dates[index - 1]];
+  const next = moments[dates[index + 1]];
   if (!current) return null;
 
   const cardScale = cardOpacity.interpolate({
@@ -206,6 +232,41 @@ export function HoldPreview({
         pointerEvents="box-none"
         style={[styles.stage, { height: mediaSize + 155 }]}
       >
+        {previous && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.animatedCard,
+              {
+                width: cardWidth,
+                left: (width - cardWidth) / 2,
+                opacity: cardOpacity,
+                transform: [
+                  { translateX: previousX },
+                  { translateY: position.y },
+                ],
+              },
+            ]}
+          >
+            <PreviewCard moment={previous} mediaSize={mediaSize} />
+          </Animated.View>
+        )}
+        {next && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.animatedCard,
+              {
+                width: cardWidth,
+                left: (width - cardWidth) / 2,
+                opacity: cardOpacity,
+                transform: [{ translateX: nextX }, { translateY: position.y }],
+              },
+            ]}
+          >
+            <PreviewCard moment={next} mediaSize={mediaSize} />
+          </Animated.View>
+        )}
         <Animated.View
           onStartShouldSetResponderCapture={() => true}
           onResponderGrant={(event) => {
@@ -278,21 +339,6 @@ export function HoldPreview({
         >
           <PreviewCard moment={current} mediaSize={mediaSize} />
         </Animated.View>
-        {incoming && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.animatedCard,
-              {
-                width: cardWidth,
-                left: (width - cardWidth) / 2,
-                transform: [{ translateX: incomingX }],
-              },
-            ]}
-          >
-            <PreviewCard moment={incoming} mediaSize={mediaSize} />
-          </Animated.View>
-        )}
       </View>
       <Text style={styles.hint}>
         Swipe to browse · Swipe up or down to close
