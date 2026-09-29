@@ -115,18 +115,20 @@ export default function Settings() {
               <Text style={styles.itemDetail}>
                 {settings.reminderEnabled
                   ? `Every day at ${new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, settings.reminderHour, settings.reminderMinute))}`
-                  : "Off · turn on for a gentle nudge"}
+                  : "Off"}
               </Text>
             </View>
-            <Switch
-              accessibilityLabel="Daily reminder"
-              disabled={!settings.available || !settings.ready}
-              value={settings.reminderEnabled}
-              onValueChange={(value) =>
-                update(settings.setReminderEnabled(value))
-              }
-              trackColor={{ true: "#528767", false: colors.line }}
-            />
+            <View style={styles.switchSlot}>
+              <Switch
+                accessibilityLabel="Daily reminder"
+                disabled={!settings.available || !settings.ready}
+                value={settings.reminderEnabled}
+                onValueChange={(value) =>
+                  update(settings.setReminderEnabled(value))
+                }
+                trackColor={{ true: "#528767", false: colors.line }}
+              />
+            </View>
           </View>
           {settings.reminderEnabled && (
             <View style={styles.timeRow}>
@@ -138,9 +140,6 @@ export default function Settings() {
                   update(settings.setReminderTime(hour, minute))
                 }
               />
-              <Text style={styles.itemDetail}>
-                Uses your phone’s local time. You can pause this anytime.
-              </Text>
             </View>
           )}
           {settings.notificationPermission === "denied" && (
@@ -175,7 +174,7 @@ export default function Settings() {
           />
           {settings.available && (
             <View style={styles.usage}>
-              <Text style={styles.itemTitle}>Saved on this phone</Text>
+              <Text style={styles.itemTitle}>Diary storage</Text>
               <Text style={styles.itemDetail}>
                 {settings.savedCount}{" "}
                 {settings.savedCount === 1 ? "memory" : "memories"} ·{" "}
@@ -229,13 +228,15 @@ export default function Settings() {
                 Play visible calendar videos quietly.
               </Text>
             </View>
-            <Switch
-              accessibilityLabel="Calendar video previews"
-              disabled={!settings.available || !settings.ready}
-              value={settings.autoplay}
-              onValueChange={(value) => update(settings.setAutoplay(value))}
-              trackColor={{ true: "#528767", false: colors.line }}
-            />
+            <View style={styles.switchSlot}>
+              <Switch
+                accessibilityLabel="Calendar video previews"
+                disabled={!settings.available || !settings.ready}
+                value={settings.autoplay}
+                onValueChange={(value) => update(settings.setAutoplay(value))}
+                trackColor={{ true: "#528767", false: colors.line }}
+              />
+            </View>
           </View>
           <SettingLink
             icon="?"
@@ -251,9 +252,6 @@ export default function Settings() {
             available after sign-in in the mobile app.
           </Text>
         )}
-        <Text style={styles.version}>
-          Memento never has a public profile, feed, likes, or streaks.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -354,7 +352,14 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "center",
     },
     iconText: { color: colors.ink, fontSize: 19, fontWeight: "600" },
-    rowCopy: { flex: 1, paddingVertical: 15 },
+    rowCopy: { flex: 1, minWidth: 0, paddingVertical: 15 },
+    switchSlot: {
+      width: 54,
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
     itemTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
     itemDetail: {
       color: colors.muted,
@@ -402,11 +407,5 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 17,
       textAlign: "center",
       marginTop: 12,
-    },
-    version: {
-      color: colors.muted,
-      fontSize: 11,
-      marginTop: 29,
-      lineHeight: 16,
     },
   });

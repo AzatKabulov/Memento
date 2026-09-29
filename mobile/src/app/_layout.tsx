@@ -32,7 +32,13 @@ function ThemedNavigator() {
           contentStyle: { backgroundColor: colors.paper },
           animation: "fade",
         }}
-      />
+      >
+        <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+        <Stack.Screen
+          name="moment/[date]"
+          options={{ gestureEnabled: false }}
+        />
+      </Stack>
     </>
   );
 }

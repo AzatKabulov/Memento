@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer, type VideoPlayer } from "expo-video";
 import type { Moment } from "../state/DiaryContext";
@@ -11,12 +11,14 @@ export function MomentMedia({
   height = size,
   focused = false,
   playing = true,
+  onVideoPress,
 }: {
   moment: Moment;
   size: number;
   height?: number;
   focused?: boolean;
   playing?: boolean;
+  onVideoPress?: () => void;
 }) {
   const imageSource = useMemo(
     () => moment.sample ?? { uri: moment.uri },
@@ -34,6 +36,7 @@ export function MomentMedia({
         size={size}
         focused={focused}
         playing={playing}
+        onVideoPress={onVideoPress}
       />
     );
   }
@@ -64,11 +67,13 @@ function VideoMedia({
   size,
   focused,
   playing,
+  onVideoPress,
 }: {
   uri: string;
   size: number;
   focused: boolean;
   playing: boolean;
+  onVideoPress?: () => void;
 }) {
   const player = useVideoPlayer(uri, (video) => {
     video.loop = true;
@@ -102,6 +107,39 @@ function VideoMedia({
         surfaceType="textureView"
         style={{ width: size, height: size }}
       />
+      {onVideoPress && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={focused ? "Mute video" : "Unmute video"}
+          onPress={onVideoPress}
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            justifyContent: "flex-end",
+            alignItems: "center",
+            paddingBottom: 17,
+          }}
+        >
+          <Text
+            pointerEvents="none"
+            style={{
+              overflow: "hidden",
+              color: "#FFF9F0",
+              fontSize: 11,
+              fontWeight: "700",
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 16,
+              backgroundColor: "rgba(22,16,13,0.65)",
+            }}
+          >
+            {focused ? "Sound on" : "Sound off"}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

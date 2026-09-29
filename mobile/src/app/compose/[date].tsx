@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 import {
   Alert,
   Keyboard,
@@ -204,41 +205,85 @@ export default function Compose() {
           <View style={styles.framing}>
             <Text style={styles.fieldLabel}>POSITION IN YOUR CALENDAR</Text>
             <Text style={styles.frameHint}>
-              Tap the photo to choose what appears in the calendar. The full
-              photo stays saved.
+              Tap to adjust its calendar crop.
             </Text>
           </View>
         )}
         <Text style={styles.fieldLabel}>CHOOSE YOUR MOMENT</Text>
         <View style={styles.sources}>
           {date === today && (
-            <TouchableOpacity
+            <Pressable
               style={styles.source}
               accessibilityRole="button"
+              accessibilityLabel="Take a photo or video"
               onPress={() =>
                 router.push({ pathname: "/camera", params: { date } })
               }
             >
-              <Text style={styles.sourceIcon}>◎</Text>
-              <Text style={styles.sourceTitle}>Camera</Text>
-              <Text style={styles.sourceHint}>For today</Text>
-            </TouchableOpacity>
+              <View style={styles.sourceBadge}>
+                <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M3 7.5h3l1.5-2h9l1.5 2h3v11H3v-11Z"
+                    stroke={colors.olive}
+                    strokeWidth={1.6}
+                    strokeLinejoin="round"
+                  />
+                  <Circle
+                    cx={12}
+                    cy={13}
+                    r={3.2}
+                    stroke={colors.olive}
+                    strokeWidth={1.6}
+                  />
+                </Svg>
+              </View>
+              <View style={styles.sourceCopy}>
+                <Text style={styles.sourceTitle}>Camera</Text>
+                <Text style={styles.sourceHint}>Capture today</Text>
+              </View>
+              <Text style={styles.sourceArrow}>›</Text>
+            </Pressable>
           )}
-          <TouchableOpacity
+          <Pressable
             style={styles.source}
             accessibilityRole="button"
+            accessibilityLabel="Choose a photo or video from your library"
             onPress={pickFromLibrary}
           >
-            <Text style={styles.sourceIcon}>▧</Text>
-            <Text style={styles.sourceTitle}>Photo library</Text>
-            <Text style={styles.sourceHint}>Photo or video</Text>
-          </TouchableOpacity>
+            <View style={styles.sourceBadge}>
+              <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+                <Rect
+                  x={3}
+                  y={4}
+                  width={18}
+                  height={16}
+                  rx={2.5}
+                  stroke={colors.olive}
+                  strokeWidth={1.6}
+                />
+                <Circle
+                  cx={16.5}
+                  cy={9}
+                  r={1.5}
+                  stroke={colors.olive}
+                  strokeWidth={1.4}
+                />
+                <Path
+                  d="m4 17 5-5 4 4 2-2 5 4"
+                  stroke={colors.olive}
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </View>
+            <View style={styles.sourceCopy}>
+              <Text style={styles.sourceTitle}>Photo library</Text>
+              <Text style={styles.sourceHint}>Choose a photo or video</Text>
+            </View>
+            <Text style={styles.sourceArrow}>›</Text>
+          </Pressable>
         </View>
-        {date !== today && (
-          <Text style={styles.guidance}>
-            For a past day, choose a photo or video from your library.
-          </Text>
-        )}
         <Text style={styles.fieldLabel}>A FEW WORDS, IF YOU LIKE</Text>
         <TextInput
           multiline
@@ -251,11 +296,11 @@ export default function Compose() {
           accessibilityLabel="Moment caption"
         />
         <Text style={styles.counter}>{caption.length}/500</Text>
-        <Text style={styles.prototype}>
-          {auth.configured
-            ? "Saved on this phone. Private cloud backup is coming later."
-            : "Preview mode: this moment stays only while the app is open."}
-        </Text>
+        {!auth.configured && (
+          <Text style={styles.prototype}>
+            Preview mode: changes are cleared when you close the app.
+          </Text>
+        )}
       </ScrollView>
       <View style={styles.footer}>
         <TouchableOpacity
@@ -308,9 +353,7 @@ export default function Compose() {
                 }
               />
             )}
-            <Text style={styles.cropHint}>
-              Drag the photo to choose its calendar crop.
-            </Text>
+            <Text style={styles.cropHint}>Drag to reposition.</Text>
           </View>
         </SafeAreaView>
       </Modal>
@@ -435,24 +478,34 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 18,
       marginBottom: 12,
     },
-    sources: { flexDirection: "row", gap: 12 },
+    sources: { gap: 10 },
     source: {
-      flex: 1,
-      minHeight: 103,
-      borderRadius: 24,
+      minHeight: 76,
+      borderRadius: 22,
       backgroundColor: colors.card,
-      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.line,
+      paddingHorizontal: 15,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+    },
+    sourceBadge: {
+      width: 46,
+      height: 46,
+      borderRadius: 18,
+      backgroundColor: colors.iconSurface,
+      alignItems: "center",
       justifyContent: "center",
     },
-    sourceIcon: { fontSize: 24, color: colors.plum },
+    sourceCopy: { flex: 1 },
     sourceTitle: {
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: "700",
       color: colors.ink,
-      marginTop: 6,
     },
-    sourceHint: { fontSize: 11, color: colors.muted, marginTop: 2 },
-    guidance: { marginTop: 10, color: colors.muted, fontSize: 12 },
+    sourceHint: { fontSize: 12, color: colors.muted, marginTop: 3 },
+    sourceArrow: { fontSize: 28, color: colors.muted, marginTop: -3 },
     input: {
       backgroundColor: colors.card,
       borderRadius: 24,

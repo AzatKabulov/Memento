@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Image } from "expo-image";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import {
-  focalAfterDrag,
-  focalPoint,
-  photoContentPosition,
-} from "../lib/photoFrame";
+  ActivityIndicator,
+  Animated,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { focalAfterDrag, focalPoint } from "../lib/photoFrame";
 import type { Moment } from "../state/DiaryContext";
 
 export function PhotoFramer({
@@ -18,31 +20,60 @@ export function PhotoFramer({
   onChange: (x: number, y: number) => void;
 }) {
   const focal = focalPoint(moment);
-  const focalRef = useRef(focal);
   const startRef = useRef(focal);
   const dimensions = useRef({ width: 0, height: 0 });
   const touchStart = useRef({ x: 0, y: 0 });
-  const [loaded, setLoaded] = useState(false);
+  const [positionX] = useState(() => new Animated.Value(0));
+  const [positionY] = useState(() => new Animated.Value(0));
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [failed, setFailed] = useState(false);
   const photoSource = useMemo(
     () => moment.sample ?? { uri: moment.uri },
     [moment.sample, moment.uri],
   );
+  const scale =
+    imageSize.width && imageSize.height
+      ? Math.max(size / imageSize.width, size / imageSize.height)
+      : 0;
+  const renderWidth = imageSize.width * scale;
+  const renderHeight = imageSize.height * scale;
+  const overflowX = Math.max(0, renderWidth - size);
+  const overflowY = Math.max(0, renderHeight - size);
+
   useEffect(() => {
-    focalRef.current = focal;
-  }, [focal]);
+    positionX.setValue((-overflowX * focal.x) / 100);
+    positionY.setValue((-overflowY * focal.y) / 100);
+  }, [focal.x, focal.y, overflowX, overflowY, positionX, positionY]);
 
   return (
     <View
       onStartShouldSetResponderCapture={() => true}
+      onResponderTerminationRequest={() => false}
       onResponderGrant={(event) => {
-        startRef.current = focalRef.current;
+        startRef.current = focal;
         touchStart.current = {
           x: event.nativeEvent.pageX,
           y: event.nativeEvent.pageY,
         };
       }}
       onResponderMove={(event) => {
+        if (!scale) return;
+        const dx = event.nativeEvent.pageX - touchStart.current.x;
+        const dy = event.nativeEvent.pageY - touchStart.current.y;
+        positionX.setValue(
+          Math.max(
+            -overflowX,
+            Math.min(0, (-overflowX * startRef.current.x) / 100 + dx),
+          ),
+        );
+        positionY.setValue(
+          Math.max(
+            -overflowY,
+            Math.min(0, (-overflowY * startRef.current.y) / 100 + dy),
+          ),
+        );
+      }}
+      onResponderRelease={(event) => {
         const next = focalAfterDrag(
           startRef.current,
           event.nativeEvent.pageX - touchStart.current.x,
@@ -51,15 +82,13 @@ export function PhotoFramer({
           dimensions.current.width,
           dimensions.current.height,
         );
-        if (next.x !== focalRef.current.x || next.y !== focalRef.current.y) {
-          focalRef.current = next;
+        if (next.x !== startRef.current.x || next.y !== startRef.current.y)
           onChange(next.x, next.y);
-        }
       }}
       accessibilityLabel="Drag photo to choose its calendar crop"
       style={[styles.frame, { width: size, height: size }]}
     >
-      {!loaded && (
+      {!scale && (
         <View style={styles.loading} pointerEvents="none">
           {!failed && <ActivityIndicator color="#E2BF8A" />}
           <Text style={styles.loadingText}>
@@ -67,19 +96,35 @@ export function PhotoFramer({
           </Text>
         </View>
       )}
+      {scale > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            width: renderWidth,
+            height: renderHeight,
+            transform: [{ translateX: positionX }, { translateY: positionY }],
+          }}
+        >
+          <Image
+            source={photoSource}
+            contentFit="fill"
+            cachePolicy="memory-disk"
+            priority="high"
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      )}
       <Image
         source={photoSource}
-        contentFit="cover"
-        contentPosition={photoContentPosition(moment)}
         cachePolicy="memory-disk"
         priority="high"
-        transition={120}
         onLoad={({ source }) => {
           dimensions.current = { width: source.width, height: source.height };
-          setLoaded(true);
+          setImageSize({ width: source.width, height: source.height });
         }}
         onError={() => setFailed(true)}
-        style={StyleSheet.absoluteFill}
+        style={styles.measureImage}
       />
       <View pointerEvents="none" style={styles.guideVertical} />
       <View pointerEvents="none" style={styles.guideHorizontal} />
@@ -95,6 +140,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.45)",
     backgroundColor: "#2A211B",
   },
+  measureImage: { position: "absolute", width: 1, height: 1, opacity: 0 },
   loading: {
     ...StyleSheet.absoluteFill,
     justifyContent: "center",

@@ -60,11 +60,12 @@ export default function Welcome() {
             {auth.configured ? "Sign in to Memento" : "Open diary prototype"}
           </Text>
         </TouchableOpacity>
-        <Text style={styles.noteBottom}>
-          {auth.configured
-            ? "Your diary is private to your account and saved on this phone. Cloud backup is coming later."
-            : "Account sign-in needs a Supabase project. This preview uses sample memories and does not save after restart."}
-        </Text>
+        {!auth.configured && (
+          <Text style={styles.noteBottom}>
+            Preview mode uses sample memories. Changes clear when you close the
+            app.
+          </Text>
+        )}
       </View>
     </SafeAreaView>
   );

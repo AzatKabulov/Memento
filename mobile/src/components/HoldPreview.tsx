@@ -48,6 +48,7 @@ export function HoldPreview({
   const [activeIndex, setActiveIndex] = useState(() =>
     Math.max(0, dates.indexOf(initialDate)),
   );
+  const [audioDate, setAudioDate] = useState<string | null>(null);
   const [trackX] = useState(
     () => new Animated.Value(-Math.max(0, dates.indexOf(initialDate)) * width),
   );
@@ -125,6 +126,7 @@ export function HoldPreview({
     if (reduceMotion) {
       trackX.setValue(-targetIndex * width);
       verticalY.setValue(0);
+      setAudioDate(null);
       setActiveIndex(targetIndex);
       return;
     }
@@ -147,6 +149,7 @@ export function HoldPreview({
         moving.current = false;
         return;
       }
+      setAudioDate(null);
       setActiveIndex(targetIndex);
     });
   }
@@ -242,6 +245,12 @@ export function HoldPreview({
               moment={moments[visibleDate]}
               slideIndex={slideIndex}
               isActive={isActive}
+              soundOn={isActive && audioDate === visibleDate}
+              onVideoPress={() =>
+                setAudioDate((value) =>
+                  value === visibleDate ? null : visibleDate,
+                )
+              }
               mediaSize={mediaSize}
               cardWidth={cardWidth}
               screenWidth={width}
@@ -249,12 +258,7 @@ export function HoldPreview({
               verticalY={verticalY}
               cardOpacity={cardOpacity}
               cardScale={cardScale}
-              onStartShouldSetResponderCapture={() =>
-                isActive && !moving.current
-              }
-              onResponderGrant={(event) => {
-                trackX.stopAnimation();
-                verticalY.stopAnimation();
+              onTouchStart={(event) => {
                 const { pageX, pageY, timestamp } = event.nativeEvent;
                 touch.current = {
                   x: pageX,
@@ -265,6 +269,21 @@ export function HoldPreview({
                   velocityX: 0,
                   velocityY: 0,
                 };
+              }}
+              onStartShouldSetResponderCapture={() =>
+                isActive &&
+                !moving.current &&
+                moments[visibleDate].kind !== "video"
+              }
+              onMoveShouldSetResponderCapture={(event) =>
+                isActive &&
+                !moving.current &&
+                (Math.abs(event.nativeEvent.pageX - touch.current.x) > 8 ||
+                  Math.abs(event.nativeEvent.pageY - touch.current.y) > 8)
+              }
+              onResponderGrant={() => {
+                trackX.stopAnimation();
+                verticalY.stopAnimation();
               }}
               onResponderMove={(event) => {
                 if (moving.current) return;
@@ -322,6 +341,8 @@ function PreviewSlide({
   moment,
   slideIndex,
   isActive,
+  soundOn,
+  onVideoPress,
   mediaSize,
   cardWidth,
   screenWidth,
@@ -334,6 +355,8 @@ function PreviewSlide({
   moment: Moment;
   slideIndex: number;
   isActive: boolean;
+  soundOn: boolean;
+  onVideoPress: () => void;
   mediaSize: number;
   cardWidth: number;
   screenWidth: number;
@@ -365,7 +388,12 @@ function PreviewSlide({
         },
       ]}
     >
-      <PreviewCard moment={moment} mediaSize={mediaSize} />
+      <PreviewCard
+        moment={moment}
+        mediaSize={mediaSize}
+        soundOn={soundOn}
+        onVideoPress={onVideoPress}
+      />
     </Animated.View>
   );
 }
@@ -373,9 +401,13 @@ function PreviewSlide({
 const PreviewCard = React.memo(function PreviewCard({
   moment,
   mediaSize,
+  soundOn,
+  onVideoPress,
 }: {
   moment: Moment;
   mediaSize: number;
+  soundOn: boolean;
+  onVideoPress: () => void;
 }) {
   const styles = useThemedStyles(createStyles);
   const when = dateFromDiary(moment.date);
@@ -400,7 +432,12 @@ const PreviewCard = React.memo(function PreviewCard({
           },
         ]}
       >
-        <MomentMedia moment={moment} size={mediaSize} focused={false} />
+        <MomentMedia
+          moment={moment}
+          size={mediaSize}
+          focused={soundOn}
+          onVideoPress={moment.kind === "video" ? onVideoPress : undefined}
+        />
       </View>
       <Text style={styles.caption} numberOfLines={2}>
         {moment.caption || "A moment kept."}

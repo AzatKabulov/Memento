@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { MomentMedia } from "../../components/MomentMedia";
-import { shareMoment } from "../../archive/DiaryArchive";
 import { dateFromDiary } from "../../lib/dates";
 import { useThemedStyles, type ThemeColors, type } from "../../lib/theme";
 import { useDiary } from "../../state/DiaryContext";
@@ -34,7 +33,7 @@ function MomentView({ date }: { date: string }) {
   const [appActive, setAppActive] = useState(
     AppState.currentState === "active",
   );
-  const touchStart = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const moment = moments[date];
   const { width } = useWindowDimensions();
   const mediaSize = Math.min(width - 52, 420);
@@ -167,11 +166,21 @@ function MomentView({ date }: { date: string }) {
             },
           ]}
           onTouchStart={(event) => {
-            touchStart.current = event.nativeEvent.pageX;
+            touchStart.current = {
+              x: event.nativeEvent.pageX,
+              y: event.nativeEvent.pageY,
+            };
           }}
-          onTouchEnd={(event) => {
-            if (touchStart.current === null || zoomed) return;
-            const distance = event.nativeEvent.pageX - touchStart.current;
+          onMoveShouldSetResponderCapture={(event) => {
+            if (!touchStart.current || zoomed) return false;
+            const dx = event.nativeEvent.pageX - touchStart.current.x;
+            const dy = event.nativeEvent.pageY - touchStart.current.y;
+            return Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2;
+          }}
+          onResponderTerminationRequest={() => false}
+          onResponderRelease={(event) => {
+            if (!touchStart.current) return;
+            const distance = event.nativeEvent.pageX - touchStart.current.x;
             touchStart.current = null;
             if (distance > 75) goTo(previous);
             if (distance < -75) goTo(next);
@@ -198,6 +207,7 @@ function MomentView({ date }: { date: string }) {
               size={mediaSize}
               focused={screenFocused && appActive && !muted}
               playing={screenFocused && appActive && !paused}
+              onVideoPress={() => setMuted((value) => !value)}
             />
           )}
         </View>
@@ -215,15 +225,6 @@ function MomentView({ date }: { date: string }) {
             >
               <Text style={styles.videoControlText}>
                 {paused ? "Play" : "Pause"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setMuted((value) => !value)}
-              style={styles.videoControl}
-            >
-              <Text style={styles.videoControlText}>
-                {muted ? "Unmute" : "Mute"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -265,19 +266,6 @@ function MomentView({ date }: { date: string }) {
             <Text style={styles.memoryNavText}>Next ›</Text>
           </TouchableOpacity>
         </View>
-        {!!moment.uri && (
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() =>
-              void shareMoment(moment).catch(() =>
-                Alert.alert("Could not share this moment", "Please try again."),
-              )
-            }
-            style={styles.share}
-          >
-            <Text style={styles.shareText}>Share original file</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
           accessibilityRole="button"
           onPress={deleteMoment}
@@ -424,16 +412,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     memoryNavDisabled: { opacity: 0.35 },
     memoryNavText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
-    share: {
-      alignSelf: "center",
-      minHeight: 48,
-      paddingHorizontal: 22,
-      borderRadius: 24,
-      backgroundColor: colors.card,
-      justifyContent: "center",
-      marginTop: 26,
-    },
-    shareText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
     remove: {
       alignSelf: "center",
       minHeight: 44,
