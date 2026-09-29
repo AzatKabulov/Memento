@@ -250,7 +250,7 @@ export default function CalendarScreen() {
             </View>
             <View style={styles.headingRow}>
               <View style={styles.headingContent}>
-                <Text style={styles.eyebrow}>YOUR DAYS, KEPT CLOSE</Text>
+                <Text style={styles.eyebrow}>COLLECT MOMENTS, NOT THINGS</Text>
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityLabel="Choose month and year"
