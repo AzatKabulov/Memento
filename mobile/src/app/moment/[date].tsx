@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Alert,
   AccessibilityInfo,
   AppState,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,27 +12,43 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { MomentMedia } from "../../components/MomentMedia";
+import { MomentCarousel } from "../../components/MomentCarousel";
 import { dateFromDiary } from "../../lib/dates";
 import { useThemedStyles, type ThemeColors, type } from "../../lib/theme";
 import { useDiary } from "../../state/DiaryContext";
 
 export default function MomentScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
-  return <MomentView key={date} date={date} />;
+  return (
+    <MomentView
+      date={date}
+      onNavigate={(nextDate) => {
+        router.replace({
+          pathname: "/moment/[date]",
+          params: { date: nextDate },
+        });
+      }}
+    />
+  );
 }
 
-function MomentView({ date }: { date: string }) {
+function MomentView({
+  date,
+  onNavigate,
+}: {
+  date: string;
+  onNavigate: (date: string) => void;
+}) {
   const styles = useThemedStyles(createStyles);
   const { moments, remove } = useDiary();
   const [screenFocused, setScreenFocused] = useState(true);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [appActive, setAppActive] = useState(
     AppState.currentState === "active",
   );
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const moment = moments[date];
   const { width } = useWindowDimensions();
   const mediaSize = Math.min(width - 52, 420);
@@ -52,7 +67,10 @@ function MomentView({ date }: { date: string }) {
   useEffect(() => {
     let active = true;
     void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (active && enabled) setPaused(true);
+      if (active) {
+        setReduceMotion(enabled);
+        if (enabled) setPaused(true);
+      }
     });
     return () => {
       active = false;
@@ -66,8 +84,7 @@ function MomentView({ date }: { date: string }) {
   }, []);
 
   const goTo = (target: string | null) => {
-    if (target)
-      router.replace({ pathname: "/moment/[date]", params: { date: target } });
+    if (target) onNavigate(target);
   };
 
   if (!moment) {
@@ -165,51 +182,21 @@ function MomentView({ date }: { date: string }) {
               height: moment.kind === "photo" ? mediaSize * 1.18 : mediaSize,
             },
           ]}
-          onTouchStart={(event) => {
-            touchStart.current = {
-              x: event.nativeEvent.pageX,
-              y: event.nativeEvent.pageY,
-            };
-          }}
-          onMoveShouldSetResponderCapture={(event) => {
-            if (!touchStart.current || zoomed) return false;
-            const dx = event.nativeEvent.pageX - touchStart.current.x;
-            const dy = event.nativeEvent.pageY - touchStart.current.y;
-            return Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2;
-          }}
-          onResponderTerminationRequest={() => false}
-          onResponderRelease={(event) => {
-            if (!touchStart.current) return;
-            const distance = event.nativeEvent.pageX - touchStart.current.x;
-            touchStart.current = null;
-            if (distance > 75) goTo(previous);
-            if (distance < -75) goTo(next);
-          }}
         >
-          {moment.kind === "photo" ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={zoomed ? "Zoom out photo" : "Zoom in photo"}
-              onPress={() => setZoomed((value) => !value)}
-              style={styles.photoFrame}
-            >
-              <View style={{ transform: [{ scale: zoomed ? 2 : 1 }] }}>
-                <MomentMedia
-                  moment={moment}
-                  size={mediaSize}
-                  height={mediaSize * 1.18}
-                />
-              </View>
-            </Pressable>
-          ) : (
-            <MomentMedia
-              moment={moment}
-              size={mediaSize}
-              focused={screenFocused && appActive && !muted}
-              playing={screenFocused && appActive && !paused}
-              onVideoPress={() => setMuted((value) => !value)}
-            />
-          )}
+          <MomentCarousel
+            moment={moment}
+            previous={previous ? moments[previous] : undefined}
+            next={next ? moments[next] : undefined}
+            size={mediaSize}
+            height={moment.kind === "photo" ? mediaSize * 1.18 : mediaSize}
+            zoomed={zoomed}
+            reduceMotion={reduceMotion}
+            focused={screenFocused && appActive && !muted}
+            playing={screenFocused && appActive && !paused}
+            onToggleZoom={() => setZoomed((value) => !value)}
+            onVideoPress={() => setMuted((value) => !value)}
+            onNavigate={(nextMoment) => onNavigate(nextMoment.date)}
+          />
         </View>
         {moment.kind === "photo" && (
           <Text style={styles.mediaHint}>
@@ -347,12 +334,6 @@ const createStyles = (colors: ThemeColors) =>
       shadowRadius: 0,
       elevation: 0,
       backgroundColor: "transparent",
-    },
-    photoFrame: {
-      width: "100%",
-      height: "100%",
-      alignItems: "center",
-      justifyContent: "center",
     },
     mediaHint: {
       color: colors.muted,
