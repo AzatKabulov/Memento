@@ -35,6 +35,17 @@
         height: 100%;
         flex: 1;
       }
+      /* Keep Safari's native image/link callout from replacing Memento's
+         press-and-hold preview when the diary is installed as a web app. */
+      img,
+      [role="button"] {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      img {
+        -webkit-user-drag: none;
+      }
     </style>
   </head>
 
