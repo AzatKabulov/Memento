@@ -4,6 +4,8 @@ Memento is a private visual diary for iPhone and Android. Keep one photo or shor
 
 [Test release 0.1.1](TEST_RELEASE_0_1_1.md) covers the shared Android/PWA gesture fixes, account redesign, photo-preview caching, and verification results from phone feedback.
 
+[Test release 0.1.2](TEST_RELEASE_0_1_2.md) adds free-flow preview dragging, spring return, and a translucent blurred calendar backdrop.
+
 The [product specification](PHASE_1_SPEC.md) defines behavior, [visual direction](DESIGN.md) records the matte calendar design, and the [build plan](BUILD_PLAN.md) tracks the full release path. [Phase 2–3 progress](PHASE_2_3_PROGRESS.md) distinguishes the working prototype from features still to build. [Phase 6 progress](PHASE_6_PROGRESS.md) covers calendar browsing and the memory viewer. [Phase 7 progress](PHASE_7_PROGRESS.md) records private-backup setup and remaining validation. [Phase 8 progress](PHASE_8_PROGRESS.md) covers reminders, settings, and portable archives.
 
 [Phase 9 progress](PHASE_9_PROGRESS.md) records emulator smoke tests, reliability fixes, and the physical-device and backend checks still needed for release.

@@ -25,7 +25,6 @@ try {
       });
       const page = await context.newPage();
       const session = await context.newCDPSession(page);
-      await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
       await page.goto(server.url);
       await page.getByRole('button', { name: /Open diary prototype|Explore sample diary/ }).click();
       await page.getByRole('button', { name: 'Previous month', exact: true }).click();
@@ -39,6 +38,8 @@ try {
       await page.locator('img').evaluateAll(images => Promise.all(images.map(image => image.decode().catch(() => {}))));
       await page.waitForTimeout(350);
       const box = await image.boundingBox();
+      // Compare warm gestures rather than startup/decode time.
+      await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
       const x = box.x + box.width / 2;
       const y = box.y + box.height / 2;
       const runs = [];
@@ -56,16 +57,12 @@ try {
         });
         for (let drag = 0; drag < 3; drag++) {
           await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-          for (const [dx, dy] of [[5, 8], [15, 25], [35, 55], [55, 85], [35, 40], [5, 0], [-25, -30], [-40, -50]]) {
+          for (const [dx, dy] of [[5, 8], [15, 25], [35, 55], [55, 85], [35, 40], [5, 0], [-25, -30], [-45, -55], [-25, -30], [5, 8]]) {
             await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx, y: y + dy }] });
             await page.waitForTimeout(16);
           }
-          // Force a genuinely slow final move in both builds. The baseline can
-          // retain stale velocity through a stationary hold alone.
-          for (const [dx, dy] of [[-43, -53], [-45, -55]]) {
-            await page.waitForTimeout(100);
-            await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx, y: y + dy }] });
-          }
+          // Release near origin: the old vertical velocity guard requires more
+          // than15px displacement. Both builds must actually return, not close.
           await page.waitForTimeout(150);
           await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
           await page.waitForTimeout(400);
@@ -91,7 +88,7 @@ try {
         const style = getComputedStyle(element);
         return { filter: style.backdropFilter, background: style.backgroundColor, opacity: style.opacity };
       });
-      reports.push({ export: directory, browser: 'headless Chromium, 390 × 844, CPU ×4', workflow: 'three runs of three warm preview down-right/reversal/spring-return drags', backdrop, runs });
+      reports.push({ export: directory, browser: 'headless Chromium, 390 × 844, CPU ×4 during warm gestures', workflow: 'three runs of three warm preview down-right/reversal drags, ending near origin for small-drag return', backdrop, runs });
     } finally {
       await context.close();
       await server.close();
