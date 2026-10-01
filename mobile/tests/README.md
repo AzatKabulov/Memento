@@ -33,6 +33,9 @@ These checks cover returning to the browsed month, retaining a decoded incoming
 photo through navigation, repeated touch swipes, calendar month swipes, persistent
 preview expansion/dismissal, drag reversal, and visible account action surfaces.
 Boundary swipes and reduced-motion navigation are also covered.
+The video check generates a tiny synthetic clip locally, chooses it through the
+existing sample diary's library picker, then verifies inline playback and player
+center taps that mute/unmute. It creates no cloud account or cloud media.
 The dismissal interruption check retouches the moving preview to ensure closing
 cannot leave an invisible overlay intercepting calendar taps.
 They do not establish frame rates on physical Android or iPhone hardware.

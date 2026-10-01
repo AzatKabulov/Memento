@@ -16,11 +16,12 @@ Android and web use the same calendar, preview, carousel, and account components
 ## Verification
 
 - TypeScript, ESLint, formatting, and 18 unit tests.
-- 14 isolated mobile-browser regression checks, using real touch events and synthetic sample memories. The original build failed month retention, stable incoming-image identity, full-view swiping, and month swiping checks. New tests also reproduce interrupted preview dismissal and deletion during a blocked thumbnail decode.
+- 15 isolated mobile-browser regression checks, using real touch events and synthetic sample memories. The original build failed month retention, stable incoming-image identity, full-view swiping, and month swiping checks. New tests also reproduce interrupted preview dismissal, deletion during a blocked thumbnail decode, and a disabled photo-control ancestor blocking video sound taps.
 - Synthetic 2400×1800 photo: original data URI 5,264,898 characters; cached 512×384 preview 5,003 characters. Persistence, account isolation, sign-out removal, and deletion races are checked in a real browser.
 - Same desktop browser at four-times CPU throttling, three decoded next/previous round trips: longest frame gap 95.1ms before / 54.1ms after; gaps over 50ms 6 before / 1 after. Median remained 6ms; p95 was 6.1ms before / 6.3ms after. These measurements concern desktop scheduling and do not establish frame rates on an iPhone or Android phone.
 - Production web export and local Android release build. Expo Doctor: 21/21 checks after SDK 57 patch updates.
-- Android emulator smoke check: redesigned sign-in screen opens, with working form and navigation controls.
+- Android emulator smoke checks: redesigned account screens open; a separate credential-free sample APK exercises calendar and preview gestures. Production and sample artifacts are kept separate.
+- A synthetic MP4 saved through the sample library flow plays inline in a circular frame. Center taps mute and unmute the real browser player without pausing it.
 
 Physical-device photo/video playback, audio, and perceived smoothness still need the owner's testing. Browser photo tests do not verify Safari's video autoplay policies. The APK is an internal test build signed with the existing debug key, with arm64-v8a and x86_64 support.
 

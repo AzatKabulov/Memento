@@ -98,23 +98,34 @@ function MediaPage({
         borderRadius: moment.kind === "photo" ? 30 : 0,
       }}
     >
-      <Pressable
-        disabled={moment.kind !== "photo"}
-        accessibilityRole="button"
-        accessibilityLabel={zoomed ? "Zoom out photo" : "Zoom in photo"}
-        onPress={onToggleZoom}
-      >
+      {moment.kind === "photo" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={zoomed ? "Zoom out photo" : "Zoom in photo"}
+          onPress={onToggleZoom}
+        >
+          <Animated.View style={zoomStyle}>
+            <MomentMedia
+              moment={moment}
+              size={size}
+              height={height}
+              focused={focused}
+              playing={playing}
+            />
+          </Animated.View>
+        </Pressable>
+      ) : (
         <Animated.View style={zoomStyle}>
           <MomentMedia
             moment={moment}
             size={size}
-            height={moment.kind === "photo" ? height : size}
+            height={size}
             focused={focused}
             playing={playing}
-            onVideoPress={moment.kind === "video" ? onVideoPress : undefined}
+            onVideoPress={onVideoPress}
           />
         </Animated.View>
-      </Pressable>
+      )}
     </View>
   );
 }

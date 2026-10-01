@@ -281,3 +281,60 @@ test('touch photo navigation remains available with reduced motion enabled', asy
   await swipe(page, { x: 70, y: 330 }, { x: 300, y: 330 });
   await page.getByText('Rain on the way home.', { exact: true }).waitFor();
 });
+
+test('a library video plays inline and its visible player toggles mute by tapping', async t => {
+  const page = await sampleDiary(t);
+  const clip = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 240; canvas.height = 240;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#d6b589'; context.fillRect(0, 0, 240, 240);
+    const stream = canvas.captureStream(20);
+    const audio = new AudioContext();
+    await audio.resume();
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain(); gain.gain.value = .01;
+    const destination = audio.createMediaStreamDestination();
+    oscillator.connect(gain).connect(destination);
+    oscillator.start();
+    for (const track of destination.stream.getAudioTracks()) stream.addTrack(track);
+    const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+    const chunks = [];
+    const recorder = new MediaRecorder(stream, { mimeType: mime });
+    recorder.ondataavailable = event => chunks.push(event.data);
+    const stopped = new Promise(resolveStopped => { recorder.onstop = resolveStopped; });
+    let frame = 0;
+    recorder.start();
+    const timer = setInterval(() => {
+      context.fillStyle = frame++ % 2 ? '#94714e' : '#d6b589';
+      context.fillRect(0, 0, 240, 240);
+    }, 50);
+    await new Promise(resolveDuration => setTimeout(resolveDuration, 1200));
+    recorder.stop(); await stopped;
+    clearInterval(timer); oscillator.stop();
+    stream.getTracks().forEach(track => track.stop());
+    await audio.close();
+    const blob = new Blob(chunks, { type: mime });
+    const base64 = await new Promise(resolveData => {
+      const reader = new FileReader();
+      reader.onload = () => resolveData(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
+    });
+    return { base64, mime };
+  });
+  const fileSelection = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: /September 27.*empty date/ }).click();
+  const chooser = await fileSelection;
+  await chooser.setFiles({ name: clip.mime === 'video/mp4' ? 'synthetic.mp4' : 'synthetic.webm', mimeType: clip.mime, buffer: Buffer.from(clip.base64, 'base64') });
+  await page.getByRole('button', { name: 'Keep this moment' }).click();
+  const video = page.getByTestId('moment-pager').locator('video');
+  await video.waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-testid="moment-pager"] video')?.readyState >= 2);
+  assert.equal(await video.evaluate(element => element.playsInline), true);
+  await page.getByRole('button', { name: 'Mute video', exact: true }).click();
+  assert.equal(await video.evaluate(element => element.muted), true);
+  await page.getByRole('button', { name: 'Unmute video', exact: true }).click();
+  assert.equal(await video.evaluate(element => element.muted), false);
+  assert.equal(await video.evaluate(element => element.paused), false);
+  assert.equal(await video.evaluate(element => element.error), null);
+});
