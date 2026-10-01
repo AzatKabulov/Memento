@@ -5,9 +5,15 @@ import { mediaLimitIssue, mediaLimitMessage } from "../lib/mediaRules";
 import { focalPoint } from "../lib/photoFrame";
 import type { Moment } from "../state/DiaryContext";
 import type { RemoteMoment } from "../backup/types";
+import {
+  cachedPhotoThumbnail,
+  preparePhotoThumbnail,
+  removePhotoThumbnail,
+} from "../lib/photoThumbnails";
 
 const bucket = "memento-private";
 const signedUrlSeconds = 60 * 60;
+let loaded: { owner: string; moments: Moment[] } | undefined;
 const knownTypes: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -82,6 +88,10 @@ async function toMoment(
     cloudPath: row.media_path,
     cloudRevision: row.revision,
     cloudBytes: Number(row.media_bytes ?? 0),
+    thumbnailUri:
+      row.kind === "photo"
+        ? await cachedPhotoThumbnail(ownerId, row.media_path)
+        : undefined,
   };
 }
 
@@ -120,19 +130,46 @@ export async function listSavedMoments(ownerId: string): Promise<Moment[]> {
         signedUrls.set(link.path, link.signedUrl);
     }
   }
-  return Promise.all(
+  const moments = await Promise.all(
     rows.map((row) => {
       const uri = row.media_path ? signedUrls.get(row.media_path) : undefined;
       if (!uri) throw new Error("A private moment could not be opened.");
       return toMoment(ownerId, row, uri);
     }),
   );
+  loaded = { owner: ownerId, moments };
+  return moments;
 }
 
 export async function backfillPhotoThumbnails(
-  _ownerId: string,
-  _onReady: (date: string, photoUri: string, thumbnailUri: string) => void,
-): Promise<void> {}
+  ownerId: string,
+  onReady: (date: string, photoUri: string, thumbnailUri: string) => void,
+): Promise<void> {
+  const photos =
+    loaded?.owner === ownerId
+      ? loaded.moments
+          .filter((moment) => moment.kind === "photo")
+          .reverse()
+          .slice(0, 128)
+      : [];
+  for (const moment of photos) {
+    if (loaded?.owner !== ownerId) return;
+    if (!moment.uri || !moment.cloudPath || moment.thumbnailUri) continue;
+    // Yield between decodes; newest memories are prepared first.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    if (
+      !loaded?.moments.some((current) => current.cloudPath === moment.cloudPath)
+    )
+      continue;
+    const thumbnail = await preparePhotoThumbnail(
+      ownerId,
+      moment.cloudPath,
+      moment.uri,
+    );
+    if (thumbnail && loaded?.owner === ownerId)
+      onReady(moment.date, moment.uri, thumbnail);
+  }
+}
 
 export async function saveMomentLocally(
   ownerId: string,
@@ -239,7 +276,17 @@ export async function saveMomentLocally(
 
   const saved = await currentRow(ownerId, moment.date);
   if (!saved) throw new Error("The saved moment could not be reloaded.");
-  return toMoment(ownerId, saved);
+  if (moment.kind === "photo")
+    await preparePhotoThumbnail(ownerId, mediaPath, moment.uri);
+  const resultMoment = await toMoment(ownerId, saved);
+  if (loaded?.owner === ownerId)
+    loaded.moments = [
+      ...loaded.moments.filter((current) => current.date !== moment.date),
+      resultMoment,
+    ];
+  if (existing?.media_path && existing.media_path !== mediaPath)
+    await removePhotoThumbnail(ownerId, existing.media_path);
+  return resultMoment;
 }
 
 export async function deleteMomentLocally(ownerId: string, date: string) {
@@ -275,4 +322,8 @@ export async function deleteMomentLocally(ownerId: string, date: string) {
     throw new Error(
       "The diary did not confirm this removal. Please try again.",
     );
+  if (loaded?.owner === ownerId)
+    loaded.moments = loaded.moments.filter((moment) => moment.date !== date);
+  if (existing.media_path)
+    await removePhotoThumbnail(ownerId, existing.media_path);
 }

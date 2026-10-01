@@ -8,6 +8,10 @@ import React, {
 import * as Linking from "expo-linking";
 import { AppState, Platform } from "react-native";
 import { authConfigured, supabase } from "./client";
+import {
+  activatePhotoThumbnails,
+  clearPhotoThumbnails,
+} from "../lib/photoThumbnails";
 
 type AuthState = {
   configured: boolean;
@@ -37,6 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(authConfigured);
+  useEffect(() => {
+    activatePhotoThumbnails(ownerId);
+  }, [ownerId]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -114,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut: async () => {
         const { error } = await requireClient().auth.signOut();
         if (error) throw error;
+        if (ownerId) await clearPhotoThumbnails(ownerId);
         setOwnerId(null);
         setEmail(null);
       },
