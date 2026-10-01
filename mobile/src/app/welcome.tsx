@@ -1,158 +1,85 @@
-import React, { useEffect } from "react";
-import { router } from "expo-router";
-import { Image } from "expo-image";
+import React from "react";
+import { Redirect, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import {
-  useThemeColors,
-  useThemedStyles,
-  type ThemeColors,
-  type,
-} from "../lib/theme";
-import { useDiary } from "../state/DiaryContext";
+import { Text, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
-
+import { useDiary } from "../state/DiaryContext";
+import { useThemeColors, type } from "../lib/theme";
+import { SoftButton } from "../components/SoftButton";
 export default function Welcome() {
-  const colors = useThemeColors();
-  const styles = useThemedStyles(createStyles);
-  const { enter } = useDiary();
   const auth = useAuth();
-  useEffect(() => {
-    if (auth.configured && auth.ownerId) router.replace("/");
-  }, [auth.configured, auth.ownerId]);
-  const start = () => {
-    if (auth.configured) {
-      router.push("/auth");
-      return;
-    }
-    enter();
-    router.replace("/");
-  };
+  const { enter } = useDiary();
+  const colors = useThemeColors();
+  if (auth.configured) return <Redirect href={auth.ownerId ? "/" : "/auth"} />;
   return (
-    <SafeAreaView style={styles.page}>
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>A LITTLE SPACE FOR YOUR DAYS</Text>
-        <Text style={styles.title}>Memento</Text>
-        <Text style={styles.subtitle}>
-          One moment a day.{"\n"}A life to look back on.
-        </Text>
-        <View style={styles.artWrap}>
-          <Image
-            source={require("../../assets/samples/rainy-window.png")}
-            contentFit="cover"
-            style={styles.backPhoto}
-          />
-          <Image
-            source={require("../../assets/samples/morning-kitchen.png")}
-            contentFit="cover"
-            style={styles.frontPhoto}
-          />
-          <View style={styles.note}>
-            <Text style={styles.noteText}>Keep the ordinary.</Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.primary}
-          onPress={start}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          padding: 32,
+          maxWidth: 460,
+          alignSelf: "center",
+          width: "100%",
+        }}
+      >
+        <Text
+          style={{
+            color: colors.olive,
+            fontFamily: type.display,
+            fontSize: 74,
+            textAlign: "center",
+          }}
         >
-          <Text style={[styles.primaryText, { color: colors.buttonInk }]}>
-            {auth.configured ? "Sign in to Memento" : "Open diary prototype"}
+          M
+        </Text>
+        <Text
+          style={{
+            color: colors.ink,
+            fontFamily: type.display,
+            fontSize: 46,
+            textAlign: "center",
+            marginTop: 20,
+          }}
+        >
+          Memento
+        </Text>
+        <Text
+          style={{
+            color: colors.muted,
+            fontFamily: type.displayItalic,
+            fontSize: 24,
+            textAlign: "center",
+            marginVertical: 32,
+          }}
+        >
+          Collect moments, not things.
+        </Text>
+        <SoftButton
+          accessibilityLabel="Open diary prototype"
+          onPress={() => {
+            enter();
+            router.replace("/");
+          }}
+          style={{
+            backgroundColor: colors.plum,
+            borderRadius: 28,
+            minHeight: 56,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text
+            style={{
+              color: colors.buttonInk,
+              fontFamily: type.bodySemibold,
+              fontSize: 15,
+            }}
+          >
+            Open diary prototype
           </Text>
-        </TouchableOpacity>
-        {!auth.configured && (
-          <Text style={styles.noteBottom}>
-            Preview mode uses sample memories. Changes clear when you close the
-            app.
-          </Text>
-        )}
+        </SoftButton>
       </View>
     </SafeAreaView>
   );
 }
-
-const createStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.paper },
-    content: {
-      flex: 1,
-      paddingHorizontal: 28,
-      paddingTop: 55,
-      paddingBottom: 28,
-      justifyContent: "space-between",
-    },
-    eyebrow: {
-      color: colors.muted,
-      fontSize: 11,
-      fontWeight: "700",
-      letterSpacing: 2,
-    },
-    title: {
-      fontFamily: type.display,
-      color: colors.ink,
-      fontSize: 55,
-      marginTop: 5,
-    },
-    subtitle: {
-      color: colors.ink,
-      fontSize: 20,
-      lineHeight: 30,
-      marginTop: 12,
-    },
-    artWrap: {
-      flex: 1,
-      maxHeight: 390,
-      marginVertical: 32,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    backPhoto: {
-      width: 220,
-      height: 270,
-      borderRadius: 26,
-      transform: [{ rotate: "9deg" }],
-      position: "absolute",
-      right: 14,
-      top: 38,
-    },
-    frontPhoto: {
-      width: 230,
-      height: 290,
-      borderRadius: 26,
-      transform: [{ rotate: "-8deg" }],
-      position: "absolute",
-      left: 13,
-      top: 9,
-    },
-    note: {
-      backgroundColor: colors.card,
-      paddingHorizontal: 17,
-      paddingVertical: 12,
-      borderRadius: 19,
-      transform: [{ rotate: "-5deg" }],
-      position: "absolute",
-      bottom: 15,
-      right: 4,
-    },
-    noteText: {
-      fontFamily: type.display,
-      fontStyle: "italic",
-      fontSize: 17,
-      color: colors.plum,
-    },
-    primary: {
-      minHeight: 56,
-      borderRadius: 28,
-      backgroundColor: colors.plum,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    primaryText: { color: colors.white, fontWeight: "700", fontSize: 15 },
-    noteBottom: {
-      textAlign: "center",
-      color: colors.muted,
-      fontSize: 12,
-      lineHeight: 18,
-      marginTop: 18,
-    },
-  });
