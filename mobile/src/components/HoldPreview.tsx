@@ -1,35 +1,21 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { dateFromDiary } from "../lib/dates";
 import { useThemedStyles, type ThemeColors, type } from "../lib/theme";
 import type { Moment } from "../state/DiaryContext";
 import { MomentMedia } from "./MomentMedia";
 import { MemoryPager } from "./MemoryPager";
-export type PreviewOrigin = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+import { PreviewBackdrop } from "./PreviewBackdrop";
+import { usePreviewMotion, type PreviewOrigin } from "./usePreviewMotion";
+export type { PreviewOrigin } from "./usePreviewMotion";
 export function HoldPreview({
   initialDate,
   moments,
   width,
   height,
   origin,
+  blurTarget,
   reduceMotion,
   onClose,
 }: {
@@ -38,6 +24,7 @@ export function HoldPreview({
   width: number;
   height: number;
   origin: PreviewOrigin;
+  blurTarget: React.RefObject<View | null>;
   reduceMotion: boolean;
   onClose: () => void;
 }) {
@@ -45,88 +32,28 @@ export function HoldPreview({
   const dates = useMemo(() => Object.keys(moments).sort(), [moments]);
   const [date, setDate] = useState(initialDate);
   const [audioDate, setAudioDate] = useState<string | null>(null);
-  const progress = useSharedValue(reduceMotion ? 1 : 0);
-  const dragY = useSharedValue(0);
-  const closing = useRef(false);
-  const [isClosing, setIsClosing] = useState(false);
   const size = Math.min(width - 64, 330);
   const stageHeight = size + 132;
-  // The media is centered between its 66px header and footer.
-  const offsetX = origin.x + origin.width / 2 - width / 2;
-  const offsetY = origin.y + origin.height / 2 - height / 2;
-  const scale = origin.width / size;
-  useEffect(() => {
-    progress.set(
-      withTiming(1, {
-        duration: reduceMotion ? 0 : 250,
-        easing: Easing.out(Easing.cubic),
-      }),
-    );
-  }, [progress, reduceMotion]);
-  const dismiss = useCallback(
-    (direction: -1 | 0 | 1, velocity = 0) => {
-      if (closing.current) return;
-      closing.current = true;
-      setIsClosing(true);
-      setAudioDate(null);
-      const duration = reduceMotion
-        ? 0
-        : Math.max(130, Math.min(230, 230 - Math.abs(velocity) / 20));
-      if (direction) {
-        dragY.set(
-          withTiming(direction * height, {
-            duration,
-            easing: Easing.out(Easing.cubic),
-          }),
-        );
-      }
-      progress.set(
-        withTiming(
-          0,
-          { duration, easing: Easing.inOut(Easing.cubic) },
-          (done) => {
-            if (done) runOnJS(onClose)();
-          },
-        ),
-      );
-    },
-    [reduceMotion, height, dragY, progress, onClose],
-  );
+  const { dragX, dragY, dismiss, isClosing, backdrop, expansion, labels } =
+    usePreviewMotion({ origin, width, height, size, reduceMotion, onClose });
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        dismiss(0);
+        dismiss();
         return true;
       },
     );
     return () => subscription.remove();
   }, [dismiss]);
-  const backdrop = useAnimatedStyle(() => ({
-    opacity:
-      progress.get() * (1 - Math.min(0.55, Math.abs(dragY.get()) / height)),
-  }));
-  const expansion = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: offsetX * (1 - progress.get()) },
-      { translateY: offsetY * (1 - progress.get()) + dragY.get() },
-      { scale: scale + (1 - scale) * progress.get() },
-    ],
-  }));
-  const labels = useAnimatedStyle(() => ({
-    opacity: Math.max(0, (progress.get() - 0.55) / 0.45),
-  }));
   return (
     <View style={styles.overlay} accessibilityViewIsModal>
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.tint, backdrop]}
-      />
+      <PreviewBackdrop blurTarget={blurTarget} style={backdrop} />
       <Pressable
         style={StyleSheet.absoluteFill}
         accessibilityRole="button"
         accessibilityLabel="Close preview"
-        onPress={() => dismiss(0)}
+        onPress={() => dismiss()}
       />
       <Animated.View style={[{ width, height: stageHeight }, expansion]}>
         <MemoryPager
@@ -138,6 +65,7 @@ export function HoldPreview({
           height={stageHeight}
           reduceMotion={reduceMotion}
           dragY={dragY}
+          dragX={dragX}
           onDismiss={dismiss}
           onChange={(key) => {
             setDate(key);
@@ -153,7 +81,7 @@ export function HoldPreview({
                 <Pressable
                   style={StyleSheet.absoluteFill}
                   accessibilityLabel="Close preview"
-                  onPress={() => dismiss(0)}
+                  onPress={() => dismiss()}
                 />
                 <Animated.View
                   pointerEvents="none"
@@ -220,7 +148,6 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       overflow: "hidden",
     },
-    tint: { backgroundColor: colors.paper },
     label: { height: 66, alignItems: "center", justifyContent: "center" },
     date: { color: colors.ink, fontFamily: type.display, fontSize: 28 },
     weekday: { color: colors.muted, fontSize: 12, marginTop: 3 },

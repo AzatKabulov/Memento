@@ -123,16 +123,17 @@ test('horizontal calendar swipes change months in either direction', async t => 
   assert.match(await month.innerText(), /September/);
 });
 
-async function holdPreview(page) {
-  const tile = await page.getByRole('button', { name: /September 26.*photo moment/ }).boundingBox();
+async function holdPreview(page, day = 26, source = 'rainy-window') {
+  const tile = await page.getByRole('button', { name: new RegExp(`September ${day}.*photo moment`) }).boundingBox();
   const session = await page.context().newCDPSession(page);
   await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 }] });
   await page.waitForTimeout(650);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await session.detach();
   await page.getByTestId('preview-pager').waitFor();
-  await page.waitForTimeout(100);
-  return page.getByTestId('preview-pager').locator('img[src*="rainy-window"]').first();
+  // Finish the opening motion before a test measures drag displacement.
+  await page.waitForTimeout(350);
+  return page.getByTestId('preview-pager').locator(`img[src*="${source}"]`).first();
 }
 
 test('holding opens an expanding preview that stays after release and shrinks on outside tap', async t => {
@@ -183,6 +184,198 @@ test('a held preview follows a vertical drag that reverses before finger release
   assert.ok(Math.abs(reversed.y - (initial.y - 40)) < 20, `The preview follows the reversed finger position promptly (${reversed.y - initial.y}px)`);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await session.detach();
+});
+
+test('a preview follows both coordinates of a diagonal drag and its reversal', async t => {
+  const page = await sampleDiary(t);
+  const image = await holdPreview(page);
+  const initial = await image.boundingBox();
+  const origin = { x: initial.x + initial.width / 2, y: initial.y + initial.height / 2 };
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [origin] });
+  for (const [dx, dy] of [[4, 8], [12, 22], [35, 55], [55, 85]]) {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin.x + dx, y: origin.y + dy }] });
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(40);
+  const downRight = await image.boundingBox();
+  assert.ok(Math.abs(downRight.x - initial.x - 55) < 16, `The diagonal drag follows X (${downRight.x - initial.x}px)`);
+  assert.ok(Math.abs(downRight.y - initial.y - 85) < 16, `The diagonal drag follows Y (${downRight.y - initial.y}px)`);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin.x - 45, y: origin.y - 55 }] });
+  await page.waitForTimeout(40);
+  const upLeft = await image.boundingBox();
+  assert.ok(Math.abs(upLeft.x - initial.x + 45) < 16, `The reversed drag follows X (${upLeft.x - initial.x}px)`);
+  assert.ok(Math.abs(upLeft.y - initial.y + 55) < 16, `The reversed drag follows Y (${upLeft.y - initial.y}px)`);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await session.detach();
+});
+
+test('a mostly horizontal preview drag still follows vertical finger drift', async t => {
+  const page = await sampleDiary(t);
+  const image = await holdPreview(page);
+  const initial = await image.boundingBox();
+  const origin = { x: initial.x + initial.width / 2, y: initial.y + initial.height / 2 };
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [origin] });
+  for (const [dx, dy] of [[12, 2], [40, 8], [75, 20], [110, 32]]) {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin.x + dx, y: origin.y + dy }] });
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(40);
+  const dragged = await image.boundingBox();
+  assert.ok(Math.abs(dragged.x - initial.x - 110) < 20, `The horizontal displacement follows the finger (${dragged.x - initial.x}px)`);
+  assert.ok(Math.abs(dragged.y - initial.y - 32) < 14, `The vertical drift remains free (${dragged.y - initial.y}px)`);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await session.detach();
+});
+
+test('a short slow free preview drag settles back to its original center', async t => {
+  const page = await sampleDiary(t);
+  const image = await holdPreview(page);
+  const initial = await image.boundingBox();
+  const origin = { x: initial.x + initial.width / 2, y: initial.y + initial.height / 2 };
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [origin] });
+  for (const [dx, dy] of [[5, 8], [12, 17], [23, 31], [29, 39], [30, 40]]) {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin.x + dx, y: origin.y + dy }] });
+    await page.waitForTimeout(40);
+  }
+  const dragged = await image.boundingBox();
+  assert.ok(dragged.x > initial.x + 15 && dragged.y > initial.y + 20, 'The small drag visibly displaces both coordinates');
+  await page.waitForTimeout(150);
+  await page.evaluate(({ x, y }) => {
+    window.previewReturnFrames = [];
+    window.recordPreviewReturn = true;
+    const record = () => {
+      const image = document.querySelector('[data-testid="preview-pager"] img[src*="rainy-window"]');
+      const box = image?.getBoundingClientRect();
+      if (box) window.previewReturnFrames.push(Math.hypot(box.x - x, box.y - y));
+      if (window.recordPreviewReturn) requestAnimationFrame(record);
+    };
+    requestAnimationFrame(record);
+  }, { x: initial.x, y: initial.y });
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await session.detach();
+  await page.waitForFunction(({ x, y }) => {
+    const image = document.querySelector('[data-testid="preview-pager"] img[src*="rainy-window"]');
+    const box = image?.getBoundingClientRect();
+    return box && Math.abs(box.x - x) < 2 && Math.abs(box.y - y) < 2;
+  }, { x: initial.x, y: initial.y });
+  const returnFrames = await page.evaluate(() => {
+    window.recordPreviewReturn = false;
+    return window.previewReturnFrames;
+  });
+  const distance = Math.hypot(dragged.x - initial.x, dragged.y - initial.y);
+  assert.ok(returnFrames.some(value => value > distance * .2 && value < distance * .8), 'The preview returns through intermediate positions instead of snapping to center');
+  assert.equal(await page.getByTestId('preview-pager').count(), 1, 'A small drag keeps the preview open');
+});
+
+test('the preview uses a real blurred translucent backdrop that preserves the calendar underneath', async t => {
+  const page = await sampleDiary(t);
+  await holdPreview(page);
+  const backdrop = await page.evaluate(() => {
+    const explicit = document.querySelector('[data-testid="preview-backdrop"]');
+    let overlay = document.querySelector('[data-testid="preview-pager"]').parentElement;
+    while (overlay.parentElement && getComputedStyle(overlay).zIndex !== '20') overlay = overlay.parentElement;
+    const element = explicit || overlay.firstElementChild;
+    const style = getComputedStyle(element);
+    const filters = [element, ...element.querySelectorAll('*')].map(node => {
+      const computed = getComputedStyle(node);
+      return computed.backdropFilter || computed.webkitBackdropFilter || 'none';
+    });
+    const parts = style.backgroundColor.match(/^rgba?\((.*)\)$/)?.[1].split(',').map(Number);
+    return { filters, background: style.backgroundColor, alpha: parts?.length === 4 ? parts[3] : parts?.length === 3 ? 1 : 0, opacity: Number(style.opacity) };
+  });
+  assert.ok(backdrop.filters.some(filter => /blur\((?!0px)/.test(filter)), `The calendar is blurred by a real backdrop filter (${JSON.stringify(backdrop)})`);
+  assert.ok(backdrop.alpha * backdrop.opacity < .9, `The backdrop stays translucent (${JSON.stringify(backdrop)})`);
+  assert.match(await page.getByRole('button', { name: 'Choose month and year' }).innerText(), /September/);
+});
+
+test('boundary previews follow diagonal overswipes, return, and can still dismiss diagonally', async t => {
+  const page = await sampleDiary(t);
+  for (const [day, source, direction] of [[22, 'park-walk', 1], [29, 'morning-kitchen', -1]]) {
+    const image = await holdPreview(page, day, source);
+    const initial = await image.boundingBox();
+    const x = initial.x + initial.width / 2;
+    const y = initial.y + initial.height / 2;
+    const session = await page.context().newCDPSession(page);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (const offset of [12, 35, 65, 100]) {
+      await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + direction * offset, y: y + offset * .3 }] });
+      await page.waitForTimeout(25);
+    }
+    const dragged = await image.boundingBox();
+    assert.ok(Math.abs(dragged.x - initial.x - direction * 100) < 18, `A boundary does not lock or strongly resist the held preview X (${JSON.stringify({ day, initial, dragged })})`);
+    assert.ok(dragged.y - initial.y > 15, 'The boundary preview also follows Y');
+    await page.waitForTimeout(150);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(({ source, x, y }) => {
+      const box = document.querySelector(`[data-testid="preview-pager"] img[src*="${source}"]`)?.getBoundingClientRect();
+      return box && Math.abs(box.x - x) < 2 && Math.abs(box.y - y) < 2;
+    }, { source, x: initial.x, y: initial.y });
+    await session.detach();
+    await swipe(page, { x, y }, { x: x + direction * 60, y: y + 130 });
+    await page.getByTestId('preview-pager').waitFor({ state: 'detached' });
+  }
+});
+
+test('a short preview drag held at rest returns instead of using stale fling velocity', async t => {
+  const page = await sampleDiary(t);
+  const image = await holdPreview(page);
+  const initial = await image.boundingBox();
+  const x = initial.x + initial.width / 2;
+  const y = initial.y + initial.height / 2;
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (const offset of [5, 15, 45]) {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + offset, y: y + offset }] });
+    await page.waitForTimeout(8);
+  }
+  // A real held pause: do not send another move to manufacture a low velocity.
+  await page.waitForTimeout(150);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await session.detach();
+  await page.waitForTimeout(500);
+  const returned = await image.count() ? await image.boundingBox() : null;
+  assert.ok(returned && Math.abs(returned.x - initial.x) < 2 && Math.abs(returned.y - initial.y) < 2,
+    `The stationary release springs back to the same photo (${JSON.stringify({ initial, returned })})`);
+  assert.equal(await page.getByTestId('preview-pager').count(), 1);
+});
+
+test('a new drag interrupts a returning preview without losing either coordinate', async t => {
+  const page = await sampleDiary(t);
+  const image = await holdPreview(page);
+  const initial = await image.boundingBox();
+  const x = initial.x + initial.width / 2;
+  const y = initial.y + initial.height / 2;
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (const offset of [8, 18, 30, 44, 45]) {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + offset, y: y + offset }] });
+    await page.waitForTimeout(40);
+  }
+  await page.waitForTimeout(120);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(30);
+  const returning = await image.boundingBox();
+  assert.ok(returning.x > initial.x + 5 && returning.y > initial.y + 5, `The second touch starts while the spring is still returning (${JSON.stringify({ initial, returning })})`);
+  const again = { x: returning.x + returning.width / 2, y: returning.y + returning.height / 2 };
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [again] });
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: again.x + 6, y: again.y + 6 }] });
+  await page.waitForTimeout(20);
+  const grabbed = await image.boundingBox();
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: again.x + 31, y: again.y + 26 }] });
+  await page.waitForTimeout(20);
+  const moved = await image.boundingBox();
+  assert.ok(Math.abs(moved.x - grabbed.x - 25) < 14, `The interrupted spring follows the new horizontal motion (${JSON.stringify({ initial, returning, grabbed, moved })})`);
+  assert.ok(Math.abs(moved.y - grabbed.y - 20) < 14, `The interrupted spring follows the new vertical motion (${JSON.stringify({ initial, returning, grabbed, moved })})`);
+  await page.waitForTimeout(150);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await session.detach();
+  await page.waitForFunction(({ x, y }) => {
+    const box = document.querySelector('[data-testid="preview-pager"] img[src*="rainy-window"]')?.getBoundingClientRect();
+    return box && Math.abs(box.x - x) < 2 && Math.abs(box.y - y) < 2;
+  }, { x: initial.x, y: initial.y });
 });
 
 test('the persistent preview navigates photos with horizontal touch swipes', async t => {

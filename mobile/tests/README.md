@@ -33,6 +33,16 @@ These checks cover returning to the browsed month, retaining a decoded incoming
 photo through navigation, repeated touch swipes, calendar month swipes, persistent
 preview expansion/dismissal, drag reversal, and visible account action surfaces.
 Boundary swipes and reduced-motion navigation are also covered.
+Free preview dragging is checked in both coordinates, including diagonal reversals,
+horizontal drags with vertical drift, smooth spring return, boundary overswipes,
+and a second touch that interrupts the return. The backdrop check verifies a real
+blur filter with translucent color, so the calendar remains visible underneath.
+A short quick drag held still before release must also spring back without using
+the earlier movement's stale velocity to navigate or dismiss.
+Free-flow preview checks hold diagonal drags, reverse direction without lifting,
+follow both coordinates during horizontal browsing, and verify intermediate
+spring-return positions after a short drag. The backdrop check requires a real
+blur filter with a translucent fill so the calendar remains visible.
 The video check generates a tiny synthetic clip locally, chooses it through the
 existing sample diary's library picker, then verifies inline playback and player
 center taps that mute/unmute. It creates no cloud account or cloud media.
@@ -59,3 +69,13 @@ node scripts/profile-gestures.mjs path/to/baseline-export path/to/new-export
 This profiles three already decoded next/previous photo round trips under the
 same browser conditions, reporting frame gaps and sample-photo transfer sizes.
 It does not simulate iPhone Safari's renderer or native Android performance.
+
+For preview dragging and backdrop composition under the same conditions:
+
+```powershell
+node scripts/profile-preview.mjs path/to/baseline-export path/to/new-export
+```
+
+This records three runs of three warm-photo diagonal drag/reversal/return gestures.
+Run it after builds and other browser suites finish to avoid compilation or test
+contention. RAF gaps measure browser scheduling, not physical-device display FPS.

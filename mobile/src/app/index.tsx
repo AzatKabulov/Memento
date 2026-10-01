@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { Image } from "expo-image";
+import { BlurTargetView } from "expo-blur";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { CalendarMonth } from "../components/CalendarMonth";
@@ -62,6 +63,7 @@ export default function CalendarScreen() {
   const setVisibleMonth = (date: Date) => setCalendarMonth(diaryDate(date));
   const monthPager = useRef<MemoryPagerHandle>(null);
   const pageRef = useRef<View>(null);
+  const blurTarget = useRef<View>(null);
   const [previewOrigin, setPreviewOrigin] = useState<PreviewOrigin>({
     x: 0,
     y: 0,
@@ -208,7 +210,7 @@ export default function CalendarScreen() {
       style={styles.page}
       onLayout={(event) => setPageSize(event.nativeEvent.layout)}
     >
-      <View style={{ flex: 1 }}>
+      <BlurTargetView ref={blurTarget} style={{ flex: 1 }}>
         <View style={{ flex: 1 }}>
           <ScrollView
             contentContainerStyle={styles.scroll}
@@ -382,9 +384,10 @@ export default function CalendarScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-      </View>
+      </BlurTargetView>
       {preview && (
         <HoldPreview
+          blurTarget={blurTarget}
           key={preview.date}
           initialDate={preview.date}
           moments={moments}

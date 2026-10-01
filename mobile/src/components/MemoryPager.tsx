@@ -7,11 +7,19 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
+  ReduceMotion,
   type SharedValue,
 } from "react-native-reanimated";
 export type MemoryPagerHandle = {
   step: (direction: -1 | 1) => void;
+};
+export type DragRelease = {
+  x: number;
+  y: number;
+  velocityX: number;
+  velocityY: number;
 };
 type Props = {
   dates: string[];
@@ -23,9 +31,15 @@ type Props = {
   onChange: (date: string) => void;
   renderPage: (date: string, active: boolean) => React.ReactNode;
   dragY?: SharedValue<number>;
-  onDismiss?: (direction: -1 | 1, velocity: number) => void;
+  dragX?: SharedValue<number>;
+  onDismiss?: (release: DragRelease) => void;
   testID?: string;
 };
+// Gesture callbacks read their runtime clock; rendering never reads it.
+function gestureTime() {
+  "worklet";
+  return Date.now();
+}
 // Absolute positions keep an incoming page mounted at exactly the same place
 // after selection changes. There is no reset-to-center frame or image handoff.
 export const MemoryPager = forwardRef<MemoryPagerHandle, Props>(
@@ -40,6 +54,7 @@ export const MemoryPager = forwardRef<MemoryPagerHandle, Props>(
       onChange,
       renderPage,
       dragY,
+      dragX,
       onDismiss,
       testID,
     },
@@ -48,9 +63,10 @@ export const MemoryPager = forwardRef<MemoryPagerHandle, Props>(
     const index = Math.max(0, dates.indexOf(date));
     const x = useSharedValue(-index * width);
     const startX = useSharedValue(-index * width);
-    const axis = useSharedValue(0);
+    const startY = useSharedValue(0);
+    const lastMoveAt = useSharedValue(0);
     const busy = useSharedValue(false);
-    const vertical = !!dragY && !!onDismiss;
+    const freeDrag = !!dragY && !!onDismiss;
     const duration = reduceMotion ? 0 : 210;
     useLayoutEffect(() => {
       // Also handles an external date change or viewport resize before paint.
@@ -58,7 +74,7 @@ export const MemoryPager = forwardRef<MemoryPagerHandle, Props>(
       busy.set(false);
     }, [index, width, x, busy]);
     const select = (target: number) => onChange(dates[target]);
-    const finish = (target: number, velocity = 0) => {
+    const finish = (target: number, velocity = 0, velocityY = 0) => {
       "worklet";
       busy.set(true);
       const remaining = Math.abs(-target * width - x.get());
@@ -68,19 +84,31 @@ export const MemoryPager = forwardRef<MemoryPagerHandle, Props>(
             100,
             Math.min(240, remaining / Math.max(1.2, Math.abs(velocity) / 1000)),
           );
+      const completed = (done?: boolean) => {
+        "worklet";
+        if (done) {
+          busy.set(false);
+          if (target !== index) runOnJS(select)(target);
+        }
+      };
+      const spring = {
+        stiffness: 320,
+        damping: 28,
+        mass: 0.7,
+        overshootClamping: true,
+        reduceMotion: reduceMotion ? ReduceMotion.Always : ReduceMotion.Never,
+      };
       x.set(
-        withTiming(
-          -target * width,
-          { duration: ms, easing: Easing.out(Easing.cubic) },
-          (done) => {
-            if (done) {
-              busy.set(false);
-              if (target !== index) runOnJS(select)(target);
-            }
-          },
-        ),
+        target === index && freeDrag
+          ? withSpring(-target * width, { ...spring, velocity }, completed)
+          : withTiming(
+              -target * width,
+              { duration: ms, easing: Easing.out(Easing.cubic) },
+              completed,
+            ),
       );
-      if (dragY) dragY.set(withTiming(0, { duration: ms }));
+      if (dragX) dragX.set(withSpring(0, { ...spring, velocity }));
+      if (dragY) dragY.set(withSpring(0, { ...spring, velocity: velocityY }));
     };
     useImperativeHandle(ref, () => ({
       step: (direction) => {
@@ -90,71 +118,71 @@ export const MemoryPager = forwardRef<MemoryPagerHandle, Props>(
       },
     }));
     let pan = Gesture.Pan().enabled(enabled).maxPointers(1);
-    pan = vertical
+    pan = freeDrag
       ? pan.minDistance(4)
       : pan.activeOffsetX([-8, 8]).failOffsetY([-16, 16]);
     pan = pan
       .onStart(() => {
         cancelAnimation(x);
         if (dragY) cancelAnimation(dragY);
+        if (dragX) cancelAnimation(dragX);
         busy.set(false);
         startX.set(x.get());
-        axis.set(0);
+        startY.set(dragY?.get() ?? 0);
+        lastMoveAt.set(gestureTime());
       })
       .onUpdate((event) => {
-        // Web recognizers send a zero-translation activation event. Wait for
-        // real movement before locking an axis, or vertical drags become pans.
-        if (
-          !axis.get() &&
-          Math.max(Math.abs(event.translationX), Math.abs(event.translationY)) <
-            4
-        )
-          return;
-        if (!axis.get())
-          axis.set(
-            vertical &&
-              Math.abs(event.translationY) > Math.abs(event.translationX)
-              ? 2
-              : 1,
-          );
-        if (axis.get() === 2 && dragY) {
-          // Assign position directly, including when the finger reverses direction.
-          dragY.set(event.translationY);
-        } else {
-          const dx = Math.max(-width, Math.min(width, event.translationX));
-          const edge =
-            (index === 0 && dx > 0) || (index === dates.length - 1 && dx < 0);
-          x.set(startX.get() + dx * (edge ? 0.22 : 1));
-        }
+        lastMoveAt.set(gestureTime());
+        const dx = Math.max(-width, Math.min(width, event.translationX));
+        const edge =
+          (index === 0 && dx > 0) || (index === dates.length - 1 && dx < 0);
+        x.set(startX.get() + dx * (edge && !freeDrag ? 0.22 : 1));
+        // A preview follows both coordinates for the entire held gesture.
+        // Navigation versus dismissal is decided only when the finger lifts.
+        if (dragY) dragY.set(startY.get() + event.translationY);
+        if (dragX) dragX.set(x.get() + index * width);
       })
       .onEnd((event) => {
-        if (axis.get() === 2 && onDismiss && dragY) {
-          const y = event.translationY;
-          if (
-            Math.abs(y) > 70 ||
-            (Math.abs(event.velocityY) > 700 && Math.abs(y) > 15)
-          ) {
-            runOnJS(onDismiss)(y > 0 ? 1 : -1, event.velocityY);
-          } else dragY.set(withTiming(0, { duration }));
-          return;
-        }
+        // Web can retain the last move's velocity while the finger rests.
+        // Release from rest must not turn a small adjustment into navigation.
+        const resting = gestureTime() - lastMoveAt.get() > 80;
+        const velocityX = resting ? 0 : event.velocityX;
+        const velocityY = resting ? 0 : event.velocityY;
         const dx = x.get() + index * width;
-        const projected = dx + event.velocityX * 0.12;
+        if (onDismiss && dragY) {
+          const y = dragY.get();
+          if (
+            Math.abs(y) > Math.abs(dx) * 0.65 &&
+            (Math.abs(y) > 70 ||
+              (Math.abs(velocityY) > 700 && Math.abs(y) > 15))
+          ) {
+            runOnJS(onDismiss)({
+              x: dx,
+              y,
+              velocityX,
+              velocityY,
+            });
+            return;
+          }
+        }
+        const projected = dx + velocityX * 0.12;
         const step =
           Math.abs(projected) > width * 0.2 ? (projected < 0 ? 1 : -1) : 0;
         finish(
           Math.max(0, Math.min(dates.length - 1, index + step)),
-          event.velocityX,
+          velocityX,
+          velocityY,
         );
       })
       .onFinalize((_event, success) => {
         if (!success) {
           x.set(withTiming(-index * width, { duration }));
           if (dragY) dragY.set(withTiming(0, { duration }));
+          if (dragX) dragX.set(withTiming(0, { duration }));
         }
       });
     return (
-      <GestureDetector gesture={pan} touchAction={vertical ? "none" : "pan-y"}>
+      <GestureDetector gesture={pan} touchAction={freeDrag ? "none" : "pan-y"}>
         <View
           testID={testID}
           collapsable={false}
