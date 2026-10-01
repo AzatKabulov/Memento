@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { MomentCarousel } from "../../components/MomentCarousel";
+import type { MemoryPagerHandle } from "../../components/MemoryPager";
 import { dateFromDiary } from "../../lib/dates";
 import { useThemedStyles, type ThemeColors, type } from "../../lib/theme";
 import { useDiary } from "../../state/DiaryContext";
@@ -23,10 +24,7 @@ export default function MomentScreen() {
     <MomentView
       date={date}
       onNavigate={(nextDate) => {
-        router.replace({
-          pathname: "/moment/[date]",
-          params: { date: nextDate },
-        });
+        router.setParams({ date: nextDate });
       }}
     />
   );
@@ -40,6 +38,7 @@ function MomentView({
   onNavigate: (date: string) => void;
 }) {
   const styles = useThemedStyles(createStyles);
+  const pager = useRef<MemoryPagerHandle>(null);
   const { moments, remove } = useDiary();
   const [screenFocused, setScreenFocused] = useState(true);
   const [paused, setPaused] = useState(false);
@@ -83,17 +82,13 @@ function MomentView({
     return () => subscription.remove();
   }, []);
 
-  const goTo = (target: string | null) => {
-    if (target) onNavigate(target);
-  };
+  const backToCalendar = () =>
+    router.canGoBack() ? router.back() : router.replace("/");
 
   if (!moment) {
     return (
       <SafeAreaView style={styles.page}>
-        <TouchableOpacity
-          style={styles.back}
-          onPress={() => router.replace("/")}
-        >
+        <TouchableOpacity style={styles.back} onPress={backToCalendar}>
           <Text style={styles.backText}>‹ Calendar</Text>
         </TouchableOpacity>
         <Text style={styles.missing}>This moment is no longer here.</Text>
@@ -113,7 +108,7 @@ function MomentView({
           onPress: async () => {
             try {
               await remove(date);
-              router.replace("/");
+              backToCalendar();
             } catch {
               Alert.alert("Could not remove this moment", "Please try again.");
             }
@@ -129,7 +124,7 @@ function MomentView({
           style={styles.backCircle}
           accessibilityRole="button"
           accessibilityLabel="Back to calendar"
-          onPress={() => router.replace("/")}
+          onPress={backToCalendar}
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
@@ -176,26 +171,30 @@ function MomentView({
         <View
           style={[
             styles.mediaWrap,
-            moment.kind === "video" && styles.videoWrap,
             {
               width: mediaSize,
-              height: moment.kind === "photo" ? mediaSize * 1.18 : mediaSize,
+              height: mediaSize * 1.18,
             },
           ]}
         >
           <MomentCarousel
+            ref={pager}
             moment={moment}
-            previous={previous ? moments[previous] : undefined}
-            next={next ? moments[next] : undefined}
+            moments={moments}
+            dates={dates}
             size={mediaSize}
-            height={moment.kind === "photo" ? mediaSize * 1.18 : mediaSize}
+            height={mediaSize * 1.18}
             zoomed={zoomed}
             reduceMotion={reduceMotion}
             focused={screenFocused && appActive && !muted}
             playing={screenFocused && appActive && !paused}
             onToggleZoom={() => setZoomed((value) => !value)}
             onVideoPress={() => setMuted((value) => !value)}
-            onNavigate={(nextMoment) => onNavigate(nextMoment.date)}
+            onNavigate={(nextMoment) => {
+              setZoomed(false);
+              setMuted(false);
+              onNavigate(nextMoment.date);
+            }}
           />
         </View>
         {moment.kind === "photo" && (
@@ -235,7 +234,7 @@ function MomentView({
             accessibilityRole="button"
             accessibilityLabel="Previous saved moment"
             disabled={!previous}
-            onPress={() => goTo(previous)}
+            onPress={() => pager.current?.step(-1)}
             style={[
               styles.memoryNavButton,
               !previous && styles.memoryNavDisabled,
@@ -247,7 +246,7 @@ function MomentView({
             accessibilityRole="button"
             accessibilityLabel="Next saved moment"
             disabled={!next}
-            onPress={() => goTo(next)}
+            onPress={() => pager.current?.step(1)}
             style={[styles.memoryNavButton, !next && styles.memoryNavDisabled]}
           >
             <Text style={styles.memoryNavText}>Next ›</Text>
@@ -320,13 +319,7 @@ const createStyles = (colors: ThemeColors) =>
     mediaWrap: {
       alignSelf: "center",
       marginTop: 24,
-      borderRadius: 30,
-      overflow: "hidden",
-      shadowColor: "#000000",
-      shadowOffset: { width: 0, height: 13 },
-      shadowOpacity: 0.12,
-      shadowRadius: 20,
-      elevation: 5,
+      backgroundColor: "transparent",
     },
     videoWrap: {
       borderRadius: 999,

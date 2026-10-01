@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, StyleSheet, Text } from "react-native";
 import { useFonts } from "expo-font";
 import { InstrumentSerif_400Regular } from "@expo-google-fonts/instrument-serif/400Regular";
 import { InstrumentSerif_400Regular_Italic } from "@expo-google-fonts/instrument-serif/400Regular_Italic";
@@ -14,6 +14,8 @@ import { AuthProvider } from "../auth/AuthContext";
 import { BackupProvider } from "../backup/BackupContext";
 import { SettingsProvider, useSettings } from "../settings/SettingsContext";
 import { useThemeColors } from "../lib/theme";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as SystemUI from "expo-system-ui";
 
 if (Platform.OS !== "web") {
   SplashScreen.setOptions({ fade: false });
@@ -23,6 +25,17 @@ if (Platform.OS !== "web") {
 function ThemedNavigator() {
   const colors = useThemeColors();
   const { theme } = useSettings();
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      void SystemUI.setBackgroundColorAsync(colors.paper);
+      return;
+    }
+    document.documentElement.style.backgroundColor = colors.paper;
+    document.body.style.backgroundColor = colors.paper;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", colors.paper);
+  }, [colors.paper]);
   return (
     <>
       <StatusBar style={theme === "light" ? "dark" : "light"} />
@@ -62,7 +75,7 @@ export default function RootLayout() {
       Animated.timing(quoteOpacity, {
         toValue: 0,
         duration: 260,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }).start(() => setShowQuote(false));
     }, 1150);
     return () => clearTimeout(timer);
@@ -70,7 +83,7 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
   return (
-    <View
+    <GestureHandlerRootView
       style={styles.root}
       onLayout={() => {
         if (splashHidden.current) return;
@@ -109,7 +122,7 @@ export default function RootLayout() {
           )}
         </Animated.View>
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

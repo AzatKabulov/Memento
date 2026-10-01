@@ -8,14 +8,14 @@ import React, {
 import { Image } from "expo-image";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurTargetView } from "expo-blur";
+import { CalendarMonth } from "../components/CalendarMonth";
+import { MemoryPager, type MemoryPagerHandle } from "../components/MemoryPager";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Modal,
   AccessibilityInfo,
   AppState,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,23 +23,15 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { MomentMedia } from "../components/MomentMedia";
-import { HoldPreview } from "../components/HoldPreview";
+import { HoldPreview, type PreviewOrigin } from "../components/HoldPreview";
 import {
   CameraIcon,
   ChevronIcon,
-  PlayIcon,
   SettingsIcon,
 } from "../components/DiaryIcons";
 import { useSettings } from "../settings/SettingsContext";
 import { VideoPoster } from "../components/VideoPoster";
-import {
-  calendarCells,
-  dateFromDiary,
-  diaryDate,
-  momentLabel,
-  monthLabel,
-} from "../lib/dates";
+import { dateFromDiary, diaryDate, monthLabel } from "../lib/dates";
 import {
   useThemeColors,
   useThemedStyles,
@@ -55,12 +47,39 @@ const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 export default function CalendarScreen() {
   const styles = useThemedStyles(createStyles);
   const colors = useThemeColors();
-  const { entered, ready, storageError, retryLoad, moments } = useDiary();
+  const {
+    entered,
+    ready,
+    storageError,
+    retryLoad,
+    moments,
+    calendarMonth,
+    setCalendarMonth,
+  } = useDiary();
   const { autoplay, theme } = useSettings();
   const today = diaryDate(new Date());
-  const [visibleMonth, setVisibleMonth] = useState(
-    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  );
+  const visibleMonth = dateFromDiary(calendarMonth);
+  const setVisibleMonth = (date: Date) => setCalendarMonth(diaryDate(date));
+  const monthPager = useRef<MemoryPagerHandle>(null);
+  const pageRef = useRef<View>(null);
+  const [previewOrigin, setPreviewOrigin] = useState<PreviewOrigin>({
+    x: 0,
+    y: 0,
+    width: 50,
+    height: 50,
+  });
+  const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
+  const months = useMemo(() => {
+    const now = new Date();
+    const values: string[] = [];
+    for (let year = 1900; year <= now.getFullYear(); year++) {
+      for (let month = 0; month < 12; month++) {
+        if (year === now.getFullYear() && month > now.getMonth()) break;
+        values.push(diaryDate(new Date(year, month, 1)));
+      }
+    }
+    return values;
+  }, []);
   const [preview, setPreview] = useState<Moment | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState(() =>
@@ -72,11 +91,7 @@ export default function CalendarScreen() {
   );
   const [reduceMotion, setReduceMotion] = useState(false);
   const [scrolling, setScrolling] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
-  const [scrollHeight, setScrollHeight] = useState(0);
-  const [gridY, setGridY] = useState(0);
   const scrollIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const blurTargetRef = useRef<View | null>(null);
   const { width, height } = useWindowDimensions();
   const compact = height < 700;
   const viewportWidth = Math.min(width, 480) - (Platform.OS === "web" ? 16 : 0);
@@ -84,29 +99,10 @@ export default function CalendarScreen() {
   const tile = Math.floor((viewportWidth - 48 - 6 * 5) / 7);
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
-  const cells = calendarCells(year, month, 0);
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const monthCount = Object.keys(moments).filter((date) =>
     date.startsWith(monthKey),
   ).length;
-  const visibleRows = new Set(
-    cells
-      .map((_, index) => Math.floor(index / 7))
-      .filter((row) => {
-        if (!scrollHeight) return true;
-        const top = gridY + row * (tile + 11);
-        return (
-          top + tile >= scrollY - tile && top <= scrollY + scrollHeight + tile
-        );
-      }),
-  );
-  const previewVideos = cells
-    .map((date, index) => ({ date, row: Math.floor(index / 7) }))
-    .filter(({ date, row }) => {
-      return !!date && moments[date]?.kind === "video" && visibleRows.has(row);
-    })
-    .map(({ date }) => date)
-    .slice(0, 2);
   const canPreview =
     autoplay &&
     screenFocused &&
@@ -175,8 +171,7 @@ export default function CalendarScreen() {
       </SafeAreaView>
     );
 
-  const changeMonth = (step: number) =>
-    setVisibleMonth(new Date(year, month + step, 1));
+  const changeMonth = (step: -1 | 1) => monthPager.current?.step(step);
   const resumeAfterScroll = () => {
     if (scrollIdle.current) clearTimeout(scrollIdle.current);
     scrollIdle.current = setTimeout(() => setScrolling(false), 250);
@@ -208,25 +203,15 @@ export default function CalendarScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.page}>
-      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }}>
-        <LinearGradient
-          colors={
-            theme === "dark"
-              ? (["#1B1511", colors.paper, "#1C1511"] as const)
-              : ([colors.paper, "#F7F3ED", "#F2EADF"] as const)
-          }
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
+    <SafeAreaView
+      ref={pageRef}
+      style={styles.page}
+      onLayout={(event) => setPageSize(event.nativeEvent.layout)}
+    >
+      <View style={{ flex: 1 }}>
         <View style={{ flex: 1 }}>
           <ScrollView
             contentContainerStyle={styles.scroll}
-            onLayout={(event) =>
-              setScrollHeight(event.nativeEvent.layout.height)
-            }
-            onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
-            scrollEventThrottle={32}
             onScrollBeginDrag={() => setScrolling(true)}
             onScrollEndDrag={resumeAfterScroll}
             onMomentumScrollBegin={() => setScrolling(true)}
@@ -319,44 +304,45 @@ export default function CalendarScreen() {
                 </Text>
               ))}
             </View>
-            <View
-              onLayout={(event) => setGridY(event.nativeEvent.layout.y)}
-              style={[
-                styles.grid,
-                {
-                  columnGap: 5,
-                  justifyContent: "flex-start",
-                },
-              ]}
-            >
-              {cells.map((date, index) =>
-                date ? (
-                  <DateTile
-                    key={date}
-                    date={date}
-                    moment={moments[date]}
+            <View style={{ marginTop: 12 }}>
+              <MemoryPager
+                ref={monthPager}
+                testID="calendar-pager"
+                dates={months}
+                date={calendarMonth}
+                width={viewportWidth - 48}
+                height={6 * (tile + 11)}
+                reduceMotion={reduceMotion}
+                enabled={!preview && !yearOpen}
+                onChange={setCalendarMonth}
+                renderPage={(monthDate, active) => (
+                  <CalendarMonth
+                    month={monthDate}
+                    moments={moments}
                     today={today}
-                    size={tile}
-                    visible={visibleRows.has(Math.floor(index / 7))}
-                    playVideo={canPreview && previewVideos.includes(date)}
-                    onOpen={() => openDate(date)}
-                    onHold={() => {
+                    tile={tile}
+                    active={active}
+                    canPreview={canPreview}
+                    onOpen={openDate}
+                    onHold={(date, origin) => {
                       suppressPress.current = true;
                       if (suppressTimer.current)
                         clearTimeout(suppressTimer.current);
                       suppressTimer.current = setTimeout(() => {
                         suppressPress.current = false;
                       }, 500);
-                      if (moments[date]) setPreview(moments[date]);
+                      pageRef.current?.measureInWindow((x, y) => {
+                        setPreviewOrigin({
+                          ...origin,
+                          x: origin.x - x,
+                          y: origin.y - y,
+                        });
+                        if (moments[date]) setPreview(moments[date]);
+                      });
                     }}
                   />
-                ) : (
-                  <View
-                    key={`empty-${index}`}
-                    style={{ width: tile, height: tile }}
-                  />
-                ),
-              )}
+                )}
+              />
             </View>
             {!compact && (
               <Text style={styles.monthCount}>
@@ -396,15 +382,15 @@ export default function CalendarScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-      </BlurTargetView>
+      </View>
       {preview && (
         <HoldPreview
           key={preview.date}
           initialDate={preview.date}
           moments={moments}
-          width={width}
-          height={height}
-          blurTarget={blurTargetRef}
+          width={pageSize.width || viewportWidth}
+          height={pageSize.height || height}
+          origin={previewOrigin}
           reduceMotion={reduceMotion}
           onClose={() => setPreview(null)}
         />
@@ -529,111 +515,6 @@ export default function CalendarScreen() {
         </View>
       </Modal>
     </SafeAreaView>
-  );
-}
-
-function DateTile({
-  date,
-  moment,
-  today,
-  size,
-  visible,
-  playVideo,
-  onOpen,
-  onHold,
-}: {
-  date: string;
-  moment?: Moment;
-  today: string;
-  size: number;
-  visible: boolean;
-  playVideo: boolean;
-  onOpen: () => void;
-  onHold: () => void;
-}) {
-  const styles = useThemedStyles(createStyles);
-  const day = dateFromDiary(date).getDate();
-  const future = date > today;
-  const photoSource = React.useMemo(
-    () =>
-      moment?.sample ?? {
-        uri: moment?.thumbnailUri ?? moment?.uri,
-      },
-    [moment?.sample, moment?.thumbnailUri, moment?.uri],
-  );
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${momentLabel(date)}${moment ? `, ${moment.kind} moment` : future ? ", future date" : ", empty date"}`}
-      disabled={future}
-      onPress={onOpen}
-      onLongPress={moment ? onHold : undefined}
-      delayLongPress={300}
-      hitSlop={3}
-      style={{ width: size, height: size, alignItems: "center" }}
-    >
-      <View
-        style={[
-          styles.tile,
-          {
-            width: size,
-            height: size,
-            borderRadius: moment?.kind === "video" ? size / 2 : 16,
-          },
-          !moment && styles.emptyTile,
-          moment && styles.filledTile,
-          !moment && date === today && styles.todayTile,
-          !moment && future && styles.futureTile,
-        ]}
-      >
-        {moment ? (
-          <>
-            {moment.kind === "photo" ? (
-              <Image
-                source={photoSource}
-                contentFit="cover"
-                contentPosition={photoContentPosition(moment)}
-                cachePolicy="memory-disk"
-                transition={120}
-                style={StyleSheet.absoluteFill}
-              />
-            ) : playVideo ? (
-              <MomentMedia
-                moment={moment}
-                size={size}
-                focused={false}
-                playing
-              />
-            ) : (
-              <VideoPoster uri={moment.uri} size={size} visible={visible} />
-            )}
-            <LinearGradient
-              pointerEvents="none"
-              colors={["transparent", "rgba(12, 8, 5, 0.65)"]}
-              style={styles.photoShade}
-            />
-            <Text
-              maxFontSizeMultiplier={1.2}
-              style={[
-                styles.tileNumberFilled,
-                moment.kind === "video" && styles.videoNumber,
-              ]}
-            >
-              {day}
-            </Text>
-            {moment.kind === "video" && (
-              <View style={styles.videoBadge}>
-                <PlayIcon color="#FFF4E4" />
-              </View>
-            )}
-          </>
-        ) : (
-          <Text style={[styles.tileNumber, future && styles.futureNumber]}>
-            {day}
-          </Text>
-        )}
-      </View>
-    </Pressable>
   );
 }
 
@@ -799,67 +680,6 @@ const createStyles = (colors: ThemeColors) =>
       flexWrap: "wrap",
       marginTop: 12,
       rowGap: 11,
-    },
-    tile: {
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-    },
-    emptyTile: {
-      backgroundColor: colors.emptyTile,
-      borderWidth: 1,
-      borderColor: colors.emptyTileBorder,
-    },
-    filledTile: { backgroundColor: colors.blush },
-    todayTile: {
-      borderColor: colors.olive,
-      borderWidth: 1.5,
-      backgroundColor: colors.todayTile,
-    },
-    futureTile: { opacity: 0.33 },
-    tileNumber: {
-      color: colors.muted,
-      fontFamily: type.body,
-      fontSize: 11,
-    },
-    futureNumber: { opacity: 0.32 },
-    tileNumberFilled: {
-      color: "#FFF4E4",
-      fontFamily: type.bodySemibold,
-      position: "absolute",
-      left: 7,
-      bottom: 5,
-      fontSize: 10,
-      textShadowColor: "rgba(0,0,0,0.5)",
-      textShadowRadius: 3,
-    },
-    videoNumber: {
-      left: 0,
-      right: 0,
-      top: 6,
-      bottom: undefined,
-      textAlign: "center",
-    },
-    photoShade: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: "55%",
-    },
-    videoBadge: {
-      position: "absolute",
-      width: 17,
-      height: 17,
-      borderRadius: 9,
-      right: 5,
-      bottom: 5,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(23,18,15,0.72)",
-      borderWidth: 1,
-      borderColor: "rgba(242,234,219,0.26)",
     },
     monthCount: {
       marginTop: 20,

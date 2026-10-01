@@ -24,7 +24,7 @@
       html,
       body {
         height: 100%;
-        background: #1b1511;
+        background: #17120f;
       }
       /* These styles disable body scrolling if you are using <ScrollView> */
       body {
@@ -46,6 +46,11 @@
       }
       img {
         -webkit-user-drag: none;
+      }
+      [data-testid="moment-pager"] > div,
+      [data-testid="preview-pager"] > div,
+      [data-testid="calendar-pager"] > div {
+        will-change: transform;
       }
     </style>
   </head>

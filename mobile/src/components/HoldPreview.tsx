@@ -1,37 +1,35 @@
 import React, {
+  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { BlurView } from "expo-blur";
-import {
-  Animated,
-  BackHandler,
+import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
   Easing,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { dateFromDiary } from "../lib/dates";
 import { useThemedStyles, type ThemeColors, type } from "../lib/theme";
 import type { Moment } from "../state/DiaryContext";
 import { MomentMedia } from "./MomentMedia";
-
-const animationDuration = (velocity: number) =>
-  Math.max(115, Math.min(260, 250 - Math.abs(velocity) * 95));
-const slideDuration = (remaining: number, velocity: number) =>
-  Math.max(100, Math.min(320, remaining / Math.max(0.9, Math.abs(velocity))));
-
+import { MemoryPager } from "./MemoryPager";
+export type PreviewOrigin = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 export function HoldPreview({
   initialDate,
   moments,
   width,
   height,
-  blurTarget,
+  origin,
   reduceMotion,
   onClose,
 }: {
@@ -39,153 +37,61 @@ export function HoldPreview({
   moments: Record<string, Moment>;
   width: number;
   height: number;
-  blurTarget: React.RefObject<View | null>;
+  origin: PreviewOrigin;
   reduceMotion: boolean;
   onClose: () => void;
 }) {
   const styles = useThemedStyles(createStyles);
   const dates = useMemo(() => Object.keys(moments).sort(), [moments]);
-  const [activeIndex, setActiveIndex] = useState(() =>
-    Math.max(0, dates.indexOf(initialDate)),
-  );
+  const [date, setDate] = useState(initialDate);
   const [audioDate, setAudioDate] = useState<string | null>(null);
-  const [trackX] = useState(
-    () => new Animated.Value(-Math.max(0, dates.indexOf(initialDate)) * width),
-  );
-  const [verticalY] = useState(() => new Animated.Value(0));
-  const [backdropOpacity] = useState(() => new Animated.Value(0));
-  const [cardOpacity] = useState(() => new Animated.Value(0));
-  const moving = useRef(false);
-  const touch = useRef({
-    x: 0,
-    y: 0,
-    lastX: 0,
-    lastY: 0,
-    lastTime: 0,
-    velocityX: 0,
-    velocityY: 0,
-  });
-  const mediaSize = Math.min(width - 100, 280);
-  const cardWidth = Math.min(width - 44, 350);
-
-  useLayoutEffect(() => {
-    // Keep the absolute track position: the arriving keyed card stays mounted.
-    moving.current = false;
-  }, [activeIndex]);
-
+  const progress = useSharedValue(reduceMotion ? 1 : 0);
+  const dragY = useSharedValue(0);
+  const closing = useRef(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const size = Math.min(width - 64, 330);
+  const stageHeight = size + 132;
+  // The media is centered between its 66px header and footer.
+  const offsetX = origin.x + origin.width / 2 - width / 2;
+  const offsetY = origin.y + origin.height / 2 - height / 2;
+  const scale = origin.width / size;
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: reduceMotion ? 0 : 170,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardOpacity, {
-        toValue: 1,
-        duration: reduceMotion ? 0 : 170,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [backdropOpacity, cardOpacity, reduceMotion]);
-
-  function dismiss(direction: -1 | 0 | 1, velocity = 0) {
-    if (moving.current) return;
-    moving.current = true;
-    const duration = reduceMotion ? 0 : animationDuration(velocity);
-    Animated.parallel([
-      Animated.timing(verticalY, {
-        toValue: direction * height || 22,
-        duration,
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardOpacity, {
-        toValue: 0,
-        duration,
-        useNativeDriver: true,
-      }),
-    ]).start(() => onClose());
-  }
-
-  function navigate(direction: -1 | 1, displacement: number, velocity: number) {
-    if (moving.current) return;
-    const targetIndex = activeIndex + direction;
-    if (!dates[targetIndex]) {
-      Animated.spring(trackX, {
-        toValue: -activeIndex * width,
-        speed: 22,
-        bounciness: 4,
-        useNativeDriver: true,
-      }).start();
-      return;
-    }
-    if (reduceMotion) {
-      trackX.setValue(-targetIndex * width);
-      verticalY.setValue(0);
-      setAudioDate(null);
-      setActiveIndex(targetIndex);
-      return;
-    }
-    moving.current = true;
-    // The whole keyed track follows the finger; no image is remounted at handoff.
-    Animated.parallel([
-      Animated.timing(trackX, {
-        toValue: -targetIndex * width,
-        duration: slideDuration(width - Math.abs(displacement), velocity),
+    progress.set(
+      withTiming(1, {
+        duration: reduceMotion ? 0 : 250,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
       }),
-      Animated.timing(verticalY, {
-        toValue: 0,
-        duration: slideDuration(width - Math.abs(displacement), velocity),
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (!finished) {
-        moving.current = false;
-        return;
-      }
+    );
+  }, [progress, reduceMotion]);
+  const dismiss = useCallback(
+    (direction: -1 | 0 | 1, velocity = 0) => {
+      if (closing.current) return;
+      closing.current = true;
+      setIsClosing(true);
       setAudioDate(null);
-      setActiveIndex(targetIndex);
-    });
-  }
-
-  function settle() {
-    Animated.parallel([
-      Animated.spring(trackX, {
-        toValue: -activeIndex * width,
-        speed: 22,
-        bounciness: 4,
-        useNativeDriver: true,
-      }),
-      Animated.spring(verticalY, {
-        toValue: 0,
-        speed: 22,
-        bounciness: 4,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }
-
-  function finishGesture(dx: number, dy: number, vx: number, vy: number) {
-    if (moving.current) return;
-    if (
-      Math.abs(dy) > Math.abs(dx) &&
-      (Math.abs(dy) > 65 || Math.abs(vy) > 0.6)
-    )
-      dismiss(dy > 0 ? 1 : -1, vy);
-    else if (
-      Math.abs(dx) > Math.abs(dy) &&
-      (Math.abs(dx) > 55 || Math.abs(vx) > 0.6)
-    )
-      navigate(dx < 0 ? 1 : -1, dx, vx);
-    else settle();
-  }
-
+      const duration = reduceMotion
+        ? 0
+        : Math.max(130, Math.min(230, 230 - Math.abs(velocity) / 20));
+      if (direction) {
+        dragY.set(
+          withTiming(direction * height, {
+            duration,
+            easing: Easing.out(Easing.cubic),
+          }),
+        );
+      }
+      progress.set(
+        withTiming(
+          0,
+          { duration, easing: Easing.inOut(Easing.cubic) },
+          (done) => {
+            if (done) runOnJS(onClose)();
+          },
+        ),
+      );
+    },
+    [reduceMotion, height, dragY, progress, onClose],
+  );
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
@@ -195,315 +101,134 @@ export function HoldPreview({
       },
     );
     return () => subscription.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex]);
-
-  const date = dates[activeIndex];
-  const current = moments[date];
-  if (!current) return null;
-  const visibleDates = dates.slice(
-    Math.max(0, activeIndex - 1),
-    activeIndex + 2,
-  );
-
-  const cardScale = cardOpacity.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.96, 1],
-  });
-
+  }, [dismiss]);
+  const backdrop = useAnimatedStyle(() => ({
+    opacity:
+      progress.get() * (1 - Math.min(0.55, Math.abs(dragY.get()) / height)),
+  }));
+  const expansion = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX * (1 - progress.get()) },
+      { translateY: offsetY * (1 - progress.get()) + dragY.get() },
+      { scale: scale + (1 - scale) * progress.get() },
+    ],
+  }));
+  const labels = useAnimatedStyle(() => ({
+    opacity: Math.max(0, (progress.get() - 0.55) / 0.45),
+  }));
   return (
-    <View style={styles.overlay}>
+    <View style={styles.overlay} accessibilityViewIsModal>
       <Animated.View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}
-      >
-        <BlurView
-          blurTarget={blurTarget}
-          blurMethod="dimezisBlurViewSdk31Plus"
-          intensity={75}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[StyleSheet.absoluteFill, styles.tint]} />
-      </Animated.View>
+        style={[StyleSheet.absoluteFill, styles.tint, backdrop]}
+      />
       <Pressable
-        accessibilityLabel="Close preview"
-        accessibilityRole="button"
         style={StyleSheet.absoluteFill}
+        accessibilityRole="button"
+        accessibilityLabel="Close preview"
         onPress={() => dismiss(0)}
       />
-      <View
-        pointerEvents="box-none"
-        style={[styles.stage, { height: mediaSize + 155 }]}
-      >
-        {visibleDates.map((visibleDate) => {
-          const slideIndex = dates.indexOf(visibleDate);
-          const isActive = slideIndex === activeIndex;
-          return (
-            <PreviewSlide
-              key={visibleDate}
-              moment={moments[visibleDate]}
-              slideIndex={slideIndex}
-              isActive={isActive}
-              soundOn={isActive && audioDate === visibleDate}
-              onVideoPress={() =>
-                setAudioDate((value) =>
-                  value === visibleDate ? null : visibleDate,
-                )
-              }
-              mediaSize={mediaSize}
-              cardWidth={cardWidth}
-              screenWidth={width}
-              trackX={trackX}
-              verticalY={verticalY}
-              cardOpacity={cardOpacity}
-              cardScale={cardScale}
-              onTouchStart={(event) => {
-                const { pageX, pageY, timestamp } = event.nativeEvent;
-                touch.current = {
-                  x: pageX,
-                  y: pageY,
-                  lastX: pageX,
-                  lastY: pageY,
-                  lastTime: timestamp,
-                  velocityX: 0,
-                  velocityY: 0,
-                };
-              }}
-              onStartShouldSetResponderCapture={() =>
-                isActive &&
-                !moving.current &&
-                moments[visibleDate].kind !== "video"
-              }
-              onMoveShouldSetResponderCapture={(event) =>
-                isActive &&
-                !moving.current &&
-                (Math.abs(event.nativeEvent.pageX - touch.current.x) > 8 ||
-                  Math.abs(event.nativeEvent.pageY - touch.current.y) > 8)
-              }
-              onResponderGrant={() => {
-                trackX.stopAnimation();
-                verticalY.stopAnimation();
-              }}
-              onResponderMove={(event) => {
-                if (moving.current) return;
-                const { pageX, pageY, timestamp } = event.nativeEvent;
-                const elapsed = timestamp - touch.current.lastTime;
-                if (elapsed >= 12) {
-                  touch.current.velocityX =
-                    (pageX - touch.current.lastX) / elapsed;
-                  touch.current.velocityY =
-                    (pageY - touch.current.lastY) / elapsed;
-                  touch.current.lastX = pageX;
-                  touch.current.lastY = pageY;
-                  touch.current.lastTime = timestamp;
-                }
-                trackX.setValue(-activeIndex * width + pageX - touch.current.x);
-                verticalY.setValue(pageY - touch.current.y);
-              }}
-              onResponderRelease={(event) => {
-                const { pageX, pageY, timestamp } = event.nativeEvent;
-                const elapsed = timestamp - touch.current.lastTime;
-                const recentlyMoving = elapsed < 100;
-                finishGesture(
-                  pageX - touch.current.x,
-                  pageY - touch.current.y,
-                  recentlyMoving ? touch.current.velocityX : 0,
-                  recentlyMoving ? touch.current.velocityY : 0,
-                );
-              }}
-              onResponderTerminate={settle}
-              accessibilityLabel={`Preview for ${visibleDate}`}
-              accessibilityHint="Swipe left or right for another memory. Swipe up or down to close."
-              accessibilityActions={[
-                { name: "increment", label: "Next memory" },
-                { name: "decrement", label: "Previous memory" },
-                { name: "escape", label: "Close preview" },
-              ]}
-              onAccessibilityAction={(event) => {
-                const action = event.nativeEvent.actionName;
-                if (action === "escape") dismiss(0);
-                if (action === "increment") navigate(1, 0, 0);
-                if (action === "decrement") navigate(-1, 0, 0);
-              }}
-            />
-          );
-        })}
-      </View>
-      <Text style={styles.hint}>
-        Swipe to browse · Swipe up or down to close
-      </Text>
-    </View>
-  );
-}
-
-function PreviewSlide({
-  moment,
-  slideIndex,
-  isActive,
-  soundOn,
-  onVideoPress,
-  mediaSize,
-  cardWidth,
-  screenWidth,
-  trackX,
-  verticalY,
-  cardOpacity,
-  cardScale,
-  ...responderProps
-}: {
-  moment: Moment;
-  slideIndex: number;
-  isActive: boolean;
-  soundOn: boolean;
-  onVideoPress: () => void;
-  mediaSize: number;
-  cardWidth: number;
-  screenWidth: number;
-  trackX: Animated.Value;
-  verticalY: Animated.Value;
-  cardOpacity: Animated.Value;
-  cardScale: Animated.AnimatedInterpolation<number>;
-} & React.ComponentProps<typeof Animated.View>) {
-  const styles = useThemedStyles(createStyles);
-  const slideX = useMemo(
-    () => Animated.add(trackX, slideIndex * screenWidth),
-    [trackX, slideIndex, screenWidth],
-  );
-  return (
-    <Animated.View
-      {...(isActive ? responderProps : {})}
-      pointerEvents={isActive ? "auto" : "none"}
-      style={[
-        styles.animatedCard,
-        {
-          width: cardWidth,
-          left: (screenWidth - cardWidth) / 2,
-          opacity: cardOpacity,
-          transform: [
-            { translateX: slideX },
-            { translateY: verticalY },
-            { scale: cardScale },
-          ],
-        },
-      ]}
-    >
-      <PreviewCard
-        moment={moment}
-        mediaSize={mediaSize}
-        soundOn={soundOn}
-        onVideoPress={onVideoPress}
-      />
-    </Animated.View>
-  );
-}
-
-const PreviewCard = React.memo(function PreviewCard({
-  moment,
-  mediaSize,
-  soundOn,
-  onVideoPress,
-}: {
-  moment: Moment;
-  mediaSize: number;
-  soundOn: boolean;
-  onVideoPress: () => void;
-}) {
-  const styles = useThemedStyles(createStyles);
-  const when = dateFromDiary(moment.date);
-  return (
-    <View style={styles.card}>
-      <Text style={styles.date}>
-        {new Intl.DateTimeFormat("en", {
-          month: "long",
-          day: "numeric",
-        }).format(when)}
-      </Text>
-      <Text style={styles.weekday}>
-        {new Intl.DateTimeFormat("en", { weekday: "long" }).format(when)}
-      </Text>
-      <View
-        style={[
-          styles.media,
-          {
-            width: mediaSize,
-            height: mediaSize,
-            borderRadius: moment.kind === "video" ? mediaSize / 2 : 22,
-          },
-        ]}
-      >
-        <MomentMedia
-          moment={moment}
-          size={mediaSize}
-          focused={soundOn}
-          onVideoPress={moment.kind === "video" ? onVideoPress : undefined}
+      <Animated.View style={[{ width, height: stageHeight }, expansion]}>
+        <MemoryPager
+          testID="preview-pager"
+          enabled={!isClosing}
+          dates={dates}
+          date={date}
+          width={width}
+          height={stageHeight}
+          reduceMotion={reduceMotion}
+          dragY={dragY}
+          onDismiss={dismiss}
+          onChange={(key) => {
+            setDate(key);
+            setAudioDate(null);
+          }}
+          renderPage={(key, active) => {
+            const moment = moments[key];
+            const when = dateFromDiary(key);
+            return (
+              <View
+                style={{ width, height: stageHeight, alignItems: "center" }}
+              >
+                <Pressable
+                  style={StyleSheet.absoluteFill}
+                  accessibilityLabel="Close preview"
+                  onPress={() => dismiss(0)}
+                />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.label, labels]}
+                >
+                  <Text style={styles.date}>
+                    {new Intl.DateTimeFormat("en", {
+                      month: "long",
+                      day: "numeric",
+                    }).format(when)}
+                  </Text>
+                  <Text style={styles.weekday}>
+                    {new Intl.DateTimeFormat("en", { weekday: "long" }).format(
+                      when,
+                    )}
+                  </Text>
+                </Animated.View>
+                <Pressable
+                  onPress={() => {}}
+                  style={{
+                    width: size,
+                    height: size,
+                    borderRadius: moment.kind === "video" ? size / 2 : 28,
+                    overflow: "hidden",
+                  }}
+                >
+                  <MomentMedia
+                    moment={moment}
+                    size={size}
+                    focused={active && audioDate === key}
+                    playing={active}
+                    onVideoPress={
+                      moment.kind === "video"
+                        ? () =>
+                            setAudioDate((value) =>
+                              value === key ? null : key,
+                            )
+                        : undefined
+                    }
+                  />
+                </Pressable>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.footer, labels]}
+                >
+                  <Text style={styles.caption} numberOfLines={2}>
+                    {moment.caption}
+                  </Text>
+                </Animated.View>
+              </View>
+            );
+          }}
         />
-      </View>
-      <Text style={styles.caption} numberOfLines={2}>
-        {moment.caption || "A moment kept."}
-      </Text>
+      </Animated.View>
     </View>
   );
-});
-
+}
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     overlay: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
+      ...StyleSheet.absoluteFill,
       zIndex: 20,
       justifyContent: "center",
       alignItems: "center",
       overflow: "hidden",
     },
-    tint: { backgroundColor: "rgba(7,5,4,0.65)" },
-    stage: {
-      width: "100%",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    animatedCard: {
-      position: "absolute",
-      zIndex: 1,
-    },
-    card: {
-      width: "100%",
-      backgroundColor: colors.card,
-      borderRadius: 30,
-      padding: 18,
-      borderWidth: 1,
-      borderColor: colors.line,
-      shadowColor: "#000",
-      shadowOpacity: Platform.OS === "ios" ? 0.25 : 0,
-      shadowRadius: 22,
-      elevation: 8,
-    },
-    date: {
-      color: colors.ink,
-      fontFamily: type.display,
-      fontSize: 25,
-    },
-    weekday: { color: colors.muted, marginTop: 4, fontSize: 12 },
-    media: {
-      marginTop: 16,
-      overflow: "hidden",
-      alignSelf: "center",
-    },
+    tint: { backgroundColor: colors.paper },
+    label: { height: 66, alignItems: "center", justifyContent: "center" },
+    date: { color: colors.ink, fontFamily: type.display, fontSize: 28 },
+    weekday: { color: colors.muted, fontSize: 12, marginTop: 3 },
+    footer: { height: 66, paddingHorizontal: 40, paddingTop: 14 },
     caption: {
-      marginTop: 14,
       color: colors.ink,
-      fontSize: 13,
-      lineHeight: 19,
-    },
-    hint: {
-      position: "absolute",
-      bottom: 23,
-      color: "#F2EADB",
-      opacity: 0.72,
-      fontSize: 11,
       textAlign: "center",
+      fontSize: 13,
+      lineHeight: 20,
     },
   });

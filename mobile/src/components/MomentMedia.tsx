@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { SoundIcon } from "./DiaryIcons";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer, type VideoPlayer } from "expo-video";
 import type { Moment } from "../state/DiaryContext";
@@ -45,7 +46,7 @@ export function MomentMedia({
       source={imageSource}
       placeholder={previewSource}
       placeholderContentFit="cover"
-      transition={140}
+      transition={0}
       cachePolicy="memory-disk"
       contentFit="cover"
       contentPosition={photoContentPosition(moment)}
@@ -103,6 +104,7 @@ function VideoMedia({
       <VideoView
         player={player}
         nativeControls={false}
+        playsInline
         contentFit="cover"
         surfaceType="textureView"
         style={{ width: size, height: size }}
@@ -111,7 +113,12 @@ function VideoMedia({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={focused ? "Mute video" : "Unmute video"}
-          onPress={onVideoPress}
+          onPress={() => {
+            // Start audio within the tap itself, preserving Safari's user activation.
+            setPlayerMuted(player, focused);
+            if (playing) player.play();
+            onVideoPress();
+          }}
           style={{
             position: "absolute",
             top: 0,
@@ -123,21 +130,17 @@ function VideoMedia({
             paddingBottom: 17,
           }}
         >
-          <Text
+          <View
             pointerEvents="none"
             style={{
               overflow: "hidden",
-              color: "#FFF9F0",
-              fontSize: 11,
-              fontWeight: "700",
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: 16,
+              padding: 9,
+              borderRadius: 22,
               backgroundColor: "rgba(22,16,13,0.65)",
             }}
           >
-            {focused ? "Sound on" : "Sound off"}
-          </Text>
+            <SoundIcon muted={!focused} color="#FFF9F0" />
+          </View>
         </Pressable>
       )}
     </View>

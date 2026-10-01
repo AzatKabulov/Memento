@@ -34,6 +34,8 @@ export type Moment = {
 };
 
 type DiaryState = {
+  calendarMonth: string;
+  setCalendarMonth: (month: string) => void;
   entered: boolean;
   ready: boolean;
   storageError: string | null;
@@ -71,6 +73,14 @@ const DiaryContext = createContext<DiaryState | null>(null);
 
 export function DiaryProvider({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
+  const [calendar, setCalendar] = useState<{
+    owner: string | null;
+    month: string;
+  } | null>(null);
+  const calendarMonth =
+    calendar?.owner === auth.ownerId
+      ? calendar.month
+      : `${today.slice(0, 7)}-01`;
   const [previewEntered, setPreviewEntered] = useState(false);
   const [previewMoments, setPreviewMoments] = useState<Record<string, Moment>>(
     () =>
@@ -151,6 +161,8 @@ export function DiaryProvider({ children }: { children: React.ReactNode }) {
   );
   const value = useMemo<DiaryState>(
     () => ({
+      calendarMonth,
+      setCalendarMonth: (month) => setCalendar({ owner: auth.ownerId, month }),
       entered: auth.configured ? !!auth.ownerId : previewEntered,
       ready,
       storageError,
@@ -219,6 +231,7 @@ export function DiaryProvider({ children }: { children: React.ReactNode }) {
       ready,
       storageError,
       moments,
+      calendarMonth,
     ],
   );
   return (
